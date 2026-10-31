@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#07120f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta
+      name="description"
+      content="BRASA — um FPS tropical de defesa. Proteja o Núcleo da Praça do Sol dos enxames de drones."
+    />
+    <title>BRASA — Defenda a Praça do Sol</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307120f'/%3E%3Cpath d='M32 8c9 12 15 19 15 29a15 15 0 1 1-30 0c0-10 6-17 15-29z' fill='%23ffb703'/%3E%3Cpath d='M32 33c4 6 7 9 7 14a7 7 0 1 1-14 0c0-5 3-8 7-14z' fill='%23ff5d3a'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="game">
+      <canvas id="scene" aria-label="Campo de batalha 3D"></canvas>
+
+      <div class="fx-vignette" aria-hidden="true"></div>
+      <div class="fx-scan" aria-hidden="true"></div>
+      <div id="damageFlash" aria-hidden="true"></div>
+      <div id="healFlash" aria-hidden="true"></div>
+
+      <!-- ── Loading ─────────────────────────────────────────── -->
+      <div id="loading" class="screen">
+        <div class="loading-mark">BRASA<span>.</span></div>
+        <div class="loading-track"><i></i></div>
+        <div class="loading-copy">ACENDENDO A PRAÇA DO SOL</div>
+      </div>
+
+      <!-- ── Main menu ───────────────────────────────────────── -->
+      <section id="menu" class="screen hidden">
+        <div class="menu-grain" aria-hidden="true"></div>
+        <header class="menu-top">
+          <div class="brand-chip">
+            <span class="brand-flame">▲</span>
+            <span>BRASA <b>//</b> PRAÇA DO SOL</span>
+          </div>
+          <div class="menu-meta">
+            <span class="live-dot"></span> DEFESA ATIVA
+            <span class="menu-time" id="menuClock">2126.11.02 · 18:42</span>
+          </div>
+        </header>
+
+        <div class="menu-hero">
+          <div class="hero-kicker"><i></i> FPS TÁTICO TROPICAL · RIO DE JANEIRO · 2126</div>
+          <h1 class="hero-title" aria-label="Brasa">
+            <span class="hero-word">BRASA</span><span class="hero-dot">.</span>
+            <span class="hero-ghost" aria-hidden="true">BRASA</span>
+          </h1>
+          <p class="hero-sub">
+            O sol se despede. A praça resiste.<br />
+            <em>Proteja o Núcleo. Não deixe a luz apagar.</em>
+          </p>
+
+          <div class="hero-actions">
+            <button id="playBtn" class="btn btn-primary" type="button">
+              <span class="btn-glow"></span>
+              <span class="btn-label">ENTRAR NA PRAÇA</span>
+              <span class="btn-arrow">→</span>
+            </button>
+            <button id="howBtn" class="btn btn-ghost" type="button">COMO JOGAR</button>
+            <button id="settingsBtn" class="btn btn-icon" type="button" aria-label="Ajustes">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M15 4v6M7 14v6" /></svg>
+            </button>
+          </div>
+
+          <div class="hero-switches">
+            <button id="menuTilt" class="chip-switch" type="button" aria-pressed="false">
+              <span class="switch-track"><i></i></span>
+              <span class="chip-copy">
+                <b>MIRADA POR INCLINAÇÃO</b>
+                <small id="menuTiltNote">Opcional · giroscópio</small>
+              </span>
+            </button>
+            <div class="chip-static">
+              <span class="chip-ico">◈</span>
+              <span class="chip-copy"><b>TOQUE + TECLADO</b><small>Jogue como quiser</small></span>
+            </div>
+          </div>
+        </div>
+
+        <aside class="menu-card">
+          <div class="card-eyebrow">TRANSMISSÃO // DEFESA CIVIL</div>
+          <div class="card-title">O NÚCLEO VAI ACENDER<span>.</span></div>
+          <p>
+            Enxames de drones desceram sobre a Praça do Sol para roubar a energia que mantém a
+            comunidade viva. Você é a última linha entre a noite e o blackout.
+          </p>
+          <ul class="card-stats">
+            <li><span>01</span> Sobreviva a 5 ondas</li>
+            <li><span>02</span> Proteja 100% do Núcleo</li>
+            <li><span>03</span> Derrube o Colosso</li>
+          </ul>
+          <div class="card-sign">
+            <span>MELHOR MARCA</span>
+            <strong id="bestScore">000000</strong>
+          </div>
+        </aside>
+
+        <footer class="menu-foot">
+          <span>WORLD, ÁUDIO E TEXTURAS PROCEDURAIS</span>
+          <span class="foot-keys">
+            <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> MOVER
+            <kbd>MOUSE</kbd> MIRAR <kbd>R</kbd> RECARREGAR
+          </span>
+          <span>ÁUDIO RECOMENDADO <i class="sound-bars"><b></b><b></b><b></b><b></b></i></span>
+        </footer>
+      </section>
+
+      <!-- ── HUD ─────────────────────────────────────────────── -->
+      <div id="hud" class="hidden" aria-live="polite">
+        <div class="hud-top">
+          <div class="objective-panel glass">
+            <div class="objective-row">
+              <span class="obj-label"><i class="pulse-dot"></i> NÚCLEO DA PRAÇA</span>
+              <span class="obj-hp" id="coreHpText">100%</span>
+            </div>
+            <div class="core-bar"><i id="coreBar"></i><span class="core-bar-shine"></span></div>
+            <div class="objective-sub">
+              <span id="waveLabel">ONDA 1 / 5</span>
+              <span id="enemyCount">0 HOSTIS</span>
+            </div>
+          </div>
+
+          <div class="compass-wrap glass" aria-hidden="true">
+            <div class="compass-strip" id="compassStrip"></div>
+            <i class="compass-needle"></i>
+          </div>
+
+          <div id="bossBar" class="boss-bar hidden">
+            <div class="boss-head"><span><i></i> COLOSSO</span><b id="bossHpText">100%</b></div>
+            <div class="boss-track"><i id="bossBarFill"></i></div>
+          </div>
+
+          <div class="score-panel">
+            <div class="score-label">PONTOS</div>
+            <div class="score-value" id="scoreValue">0</div>
+            <div class="combo" id="comboValue"></div>
+            <div class="radar glass">
+              <canvas id="radar" width="220" height="220"></canvas>
+              <span class="radar-n">N</span>
+            </div>
+            <div class="hud-top-actions">
+              <button id="btnPause" class="hud-icon-btn" type="button" aria-label="Pausar">
+                <svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></svg>
+              </button>
+              <button id="btnFullscreen" class="hud-icon-btn" type="button" aria-label="Tela cheia">
+                <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="hud-center">
+          <div id="crosshair" class="crosshair">
+            <i class="ch t"></i><i class="ch r"></i><i class="ch b"></i><i class="ch l"></i>
+            <i class="ch-dot"></i>
+            <i class="ch-hit"></i>
+            <i class="ch-ring"></i>
+          </div>
+          <div id="hitMarker" class="hit-marker"><i></i><i></i><i></i><i></i></div>
+          <div id="damageDir" class="damage-dir"></div>
+          <div id="targetTag" class="target-tag"></div>
+          <div id="waveBanner" class="wave-banner">
+            <span class="wb-kicker" id="wbKicker">ONDA 01</span>
+            <strong id="wbTitle">CHEGANDO</strong>
+            <span class="wb-sub" id="wbSub">SEGURE A PRAÇA</span>
+          </div>
+          <div id="interactHint" class="interact-hint"></div>
+          <div id="tutorial" class="tutorial glass">
+            <b id="tutorialTitle">MISSÃO</b>
+            <span id="tutorialText">Proteja o Núcleo. Drones atacam em ondas.</span>
+          </div>
+        </div>
+
+        <div class="hud-bottom-left">
+          <div class="vitals glass">
+            <div class="vitals-head">
+              <span>VITALIDADE</span><b id="healthText">100</b>
+            </div>
+            <div class="health-bar"><i id="healthBar"></i><span class="health-segments"></span></div>
+            <div class="vitals-sub"><span id="dashState">IMPULSO PRONTO</span><span id="tiltBadge">TILT OFF</span></div>
+          </div>
+          <div id="joystick" class="joystick" aria-hidden="true">
+            <div class="joy-ring"></div>
+            <div class="joy-cross"></div>
+            <div class="joy-knob" id="joyKnob"></div>
+            <div class="joy-label">MOVER</div>
+          </div>
+        </div>
+
+        <div class="hud-bottom-right">
+          <div class="weapon-panel glass">
+            <div class="weapon-meta">
+              <span id="weaponName">SACI-15</span>
+              <small id="weaponType">FUZIL · AUTOMÁTICO</small>
+            </div>
+            <div class="ammo"><b id="ammoValue">30</b><span>/</span><i id="ammoReserve">∞</i></div>
+            <div class="ammo-pips" id="ammoPips"></div>
+            <div class="reload-track"><i id="reloadBar"></i></div>
+          </div>
+          <div class="action-cluster">
+            <button id="btnDash" class="touch-btn small" type="button" aria-label="Impulso">
+              <svg viewBox="0 0 24 24"><path d="M5 12h10M11 6l6 6-6 6M18 5v14" /></svg>
+              <span>IMPULSO</span>
+            </button>
+            <button id="btnSwap" class="touch-btn small" type="button" aria-label="Trocar arma">
+              <svg viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3" /></svg>
+              <span>ARMA</span>
+            </button>
+            <button id="btnReload" class="touch-btn" type="button" aria-label="Recarregar">
+              <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" /></svg>
+              <span>RECARGA</span>
+            </button>
+            <button id="btnFire" class="touch-btn fire" type="button" aria-label="Atirar">
+              <span class="fire-ring"></span>
+              <svg viewBox="0 0 24 24"><path d="M12 3v5M12 16v5M3 12h5M16 12h5M6.3 6.3l3.5 3.5M14.2 14.2l3.5 3.5M17.7 6.3l-3.5 3.5M9.8 14.2l-3.5 3.5" /></svg>
+              <span>FOGO</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="killfeed" class="killfeed"></div>
+        <div id="scorePops" class="score-pops"></div>
+        <div id="statusToast" class="status-toast"></div>
+      </div>
+
+      <!-- ── Pause / settings ─────────────────────────────────── -->
+      <div id="pause" class="screen overlay hidden">
+        <div class="modal">
+          <div class="modal-head">
+            <span class="modal-kicker">PAUSA TÁTICA</span>
+            <h2>RESPIRE.<br /><em>A praça espera.</em></h2>
+          </div>
+          <div class="settings-grid">
+            <label class="setting-range">
+              <span>SENSIBILIDADE <b id="sensVal">1.0×</b></span>
+              <input id="sensInput" type="range" min="0.35" max="2.2" step="0.05" value="1" />
+            </label>
+            <label class="setting-range">
+              <span>INCLINAÇÃO <b id="tiltSensVal">1.0×</b></span>
+              <input id="tiltSensInput" type="range" min="0.3" max="2.5" step="0.05" value="1" />
+            </label>
+            <button id="pauseTilt" class="setting-toggle" type="button" aria-pressed="false">
+              <span>MIRADA POR INCLINAÇÃO</span><i class="toggle-pill"><b></b></i>
+            </button>
+            <button id="pauseSound" class="setting-toggle" type="button" aria-pressed="true">
+              <span>ÁUDIO</span><i class="toggle-pill"><b></b></i>
+            </button>
+            <button id="pauseHaptics" class="setting-toggle" type="button" aria-pressed="true">
+              <span>VIBRAÇÃO</span><i class="toggle-pill"><b></b></i>
+            </button>
+            <button id="pauseInvert" class="setting-toggle" type="button" aria-pressed="false">
+              <span>INVERTER EIXO Y</span><i class="toggle-pill"><b></b></i>
+            </button>
+          </div>
+          <div class="modal-actions">
+            <button id="resumeBtn" class="btn btn-primary" type="button"><span class="btn-label">VOLTAR AO COMBATE</span><span class="btn-arrow">→</span></button>
+            <button id="quitBtn" class="btn btn-ghost" type="button">SAIR PARA O MENU</button>
+          </div>
+          <div class="modal-note">
+            iOS: ao ativar a inclinação, o sistema pedirá permissão de movimento. Toque em
+            <b>Permitir</b>. Você pode desligar quando quiser.
+          </div>
+        </div>
+      </div>
+
+      <!-- ── How to play ──────────────────────────────────────── -->
+      <div id="how" class="screen overlay hidden">
+        <div class="modal modal-wide">
+          <div class="modal-head">
+            <span class="modal-kicker">MANUAL DE CAMPO</span>
+            <h2>COMO<br /><em>segurar a praça.</em></h2>
+          </div>
+          <div class="how-grid">
+            <div class="how-item">
+              <span class="how-num">01</span>
+              <div>
+                <b>MOVER</b>
+                <p>Toque e arraste no lado esquerdo (joystick). No teclado: WASD.</p>
+              </div>
+            </div>
+            <div class="how-item">
+              <span class="how-num">02</span>
+              <div>
+                <b>MIRAR</b>
+                <p>Arraste no lado direito. No desktop, trave o mouse e use o cursor.</p>
+              </div>
+            </div>
+            <div class="how-item">
+              <span class="how-num">03</span>
+              <div>
+                <b>ATIRAR</b>
+                <p>Segure FOGO no celular ou clique no desktop. Mire nos olhos brilhantes.</p>
+              </div>
+            </div>
+            <div class="how-item">
+              <span class="how-num">04</span>
+              <div>
+                <b>SOBREVIVER</b>
+                <p>Recarregue antes de esvaziar. Use o impulso para escapar. Não deixe o Núcleo apagar.</p>
+              </div>
+            </div>
+            <div class="how-item">
+              <span class="how-num">05</span>
+              <div>
+                <b>INCLINAR</b>
+                <p>Ative a mirada por giroscópio para mirar inclinando o aparelho. Opcional.</p>
+              </div>
+            </div>
+            <div class="how-item">
+              <span class="how-num">06</span>
+              <div>
+                <b>ARMAS</b>
+                <p>Saci-15: precisa e contínua. Boto-12: devastadora de perto. Troque com Q / botão ARMA.</p>
+              </div>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button id="howClose" class="btn btn-primary" type="button"><span class="btn-label">ENTENDIDO</span><span class="btn-arrow">→</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Start countdown ──────────────────────────────────── -->
+      <div id="countdown" class="screen overlay hidden">
+        <div class="countdown-wrap">
+          <span class="cd-kicker">DEFESA INICIADA</span>
+          <strong id="cdValue">3</strong>
+          <span class="cd-sub">PROTEJA O NÚCLEO</span>
+        </div>
+      </div>
+
+      <!-- ── End screens ──────────────────────────────────────── -->
+      <div id="gameover" class="screen overlay hidden">
+        <div class="end-panel">
+          <span class="end-kicker" id="endKicker">SINAL PERDIDO</span>
+          <h2 id="endTitle">A PRAÇA<br /><em>escureceu.</em></h2>
+          <p id="endCopy">O Núcleo foi silenciado. Mas a maré sempre volta.</p>
+          <div class="end-stats">
+            <div><span>PONTOS</span><b id="endScore">0</b></div>
+            <div><span>ONDAS</span><b id="endWaves">0</b></div>
+            <div><span>ABATES</span><b id="endKills">0</b></div>
+            <div><span>PRECISÃO</span><b id="endAcc">0%</b></div>
+          </div>
+          <div class="modal-actions">
+            <button id="retryBtn" class="btn btn-primary" type="button"><span class="btn-label">TENTAR DE NOVO</span><span class="btn-arrow">↻</span></button>
+            <button id="menuBtn" class="btn btn-ghost" type="button">VOLTAR AO MENU</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="rotateHint" aria-hidden="true">
+        <div class="rotate-phone"><i></i></div>
+        <span>GIRE O DISPOSITIVO PARA UMA VISÃO MELHOR</span>
+      </div>
+      <div id="permissionToast" class="status-toast"></div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
