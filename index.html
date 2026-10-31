@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#170e1c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="FOLCLORE: Fúria — um FPS de defesa folclórica na festa junina. Jogue no celular ou tablet com toque e tilt." />
+  <title>FOLCLORE: Fúria — FPS da Festa Junina</title>
+  <link rel="preload" href="./assets/fonts/bungee-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./assets/fonts/rye-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="./styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23170e1c'/%3E%3Cpath d='M32 8l6 17 18 1-14 11 5 18-15-10-15 10 5-18L8 26l18-1z' fill='%23ffcf3f'/%3E%3C/svg%3E" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="game" aria-label="Campo de batalha 3D da vila junina"></canvas>
+
+  <div class="screen-fx" aria-hidden="true">
+    <div class="grade"></div>
+    <div id="lowHealth" class="low-health"></div>
+    <div id="damageVignette" class="damage-vignette"></div>
+    <div id="flash" class="flash"></div>
+  </div>
+
+  <!-- ============================== HUD ============================== -->
+  <div id="hud" class="hud is-hidden" aria-live="polite">
+    <div class="hud-top">
+      <div class="health-panel wood-panel">
+        <div class="health-head">
+          <span class="health-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.7-9.5-9A5.6 5.6 0 0 1 12 6.2 5.6 5.6 0 0 1 21.5 12c-2 4.3-9.5 9-9.5 9Z"/></svg>
+          </span>
+          <span class="hud-label">VIDA</span>
+          <b id="healthText">100</b>
+        </div>
+        <div class="health-track"><div id="healthFill" class="health-fill"></div></div>
+      </div>
+
+      <div class="wave-panel">
+        <div class="wave-kicker" id="objectiveText">SOBREVIVA ATÉ O AMANHECER</div>
+        <div class="wave-title"><span class="wave-word">ONDA</span> <b id="waveNum">01</b><span class="wave-total"> / 10</span></div>
+        <div class="wave-sub" id="waveName">A VILA ACORDOU</div>
+        <div class="dawn-track"><i id="dawnFill"></i></div>
+      </div>
+
+      <div class="score-cluster">
+        <div class="score-panel">
+          <div class="score-label">PONTOS</div>
+          <div id="score" class="score-value">0</div>
+          <div id="combo" class="combo is-hidden">x<span>1</span></div>
+        </div>
+        <button id="pauseBtn" class="icon-btn pause-btn" type="button" aria-label="Pausar">
+          <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="bossBar" class="boss-bar is-hidden">
+      <div class="boss-label"><span id="bossName">MULA SEM CABEÇA</span><b id="bossHpText">100%</b></div>
+      <div class="boss-track"><i id="bossFill"></i></div>
+    </div>
+
+    <div id="waveBanner" class="wave-banner" aria-hidden="true">
+      <div class="banner-rule"></div>
+      <div id="bannerKicker" class="banner-kicker">A NOITE COMEÇOU</div>
+      <div id="bannerTitle" class="banner-title">ONDA 1</div>
+      <div id="bannerSub" class="banner-sub">SACI PERERÊ À VISTA</div>
+      <div class="banner-rule"></div>
+    </div>
+
+    <div id="combatToast" class="combat-toast"></div>
+
+    <div id="crosshair" class="crosshair" aria-hidden="true">
+      <i class="ch-line ch-t"></i><i class="ch-line ch-r"></i><i class="ch-line ch-b"></i><i class="ch-line ch-l"></i>
+      <i class="ch-dot"></i>
+      <div class="hitmarker"><i></i><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="hud-bottom">
+      <div id="joystick" class="joystick" aria-label="Analógico de movimento">
+        <div class="joy-ring"></div>
+        <div class="joy-arrows" aria-hidden="true"><i>▲</i><i>▶</i><i>▼</i><i>◀</i></div>
+        <div id="joyKnob" class="joy-knob"></div>
+      </div>
+
+      <div class="bottom-center">
+        <div class="weapon-panel wood-panel">
+          <div class="weapon-copy">
+            <span class="weapon-slot" id="weaponSlot">ARMA 1</span>
+            <b id="weaponName">BERIMBAU DE GUERRA</b>
+          </div>
+          <div class="ammo"><b id="ammoMag">30</b><span>/&nbsp;∞</span></div>
+        </div>
+        <div id="tiltBadge" class="tilt-badge is-hidden">TILT ATIVO</div>
+      </div>
+
+      <div class="actions touch-only">
+        <button class="action-btn action-swap" id="btnSwap" type="button" aria-label="Trocar arma">
+          <svg viewBox="0 0 24 24"><path d="M4 8h13m0 0-3-3m3 3-3 3M20 16H7m0 0 3-3m-3 3 3 3"/></svg>
+          <span>TROCA</span>
+        </button>
+        <button class="action-btn action-jump" id="btnJump" type="button" aria-label="Pular">
+          <svg viewBox="0 0 24 24"><path d="M12 19V5m0 0-5 5m5-5 5 5"/></svg>
+          <span>PULO</span>
+        </button>
+        <button class="action-btn action-grenade" id="btnGrenade" type="button" aria-label="Arremessar foguete">
+          <svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"/><circle cx="12" cy="12" r="2.6"/></svg>
+          <span>FOGO</span>
+          <b id="grenadeCount" class="badge">2</b>
+        </button>
+        <button class="action-btn action-reload" id="btnReload" type="button" aria-label="Recarregar">
+          <svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5V9H15"/></svg>
+          <span>RECARGA</span>
+        </button>
+        <button class="action-btn action-fire" id="btnFire" type="button" aria-label="Atirar">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+          <span>ATIRAR</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="desktopHint" class="desktop-hint">
+      <b>WASD</b> mover &nbsp;·&nbsp; <b>MOUSE</b> mirar &nbsp;·&nbsp; <b>CLIQUE</b> atirar &nbsp;·&nbsp; <b>R</b> recarregar &nbsp;·&nbsp; <b>1–3</b> armas &nbsp;·&nbsp; <b>Q</b> trocar &nbsp;·&nbsp; <b>ESPAÇO</b> pular &nbsp;·&nbsp; <b>ESC</b> pausa
+    </div>
+  </div>
+
+  <!-- ============================== MENU ============================== -->
+  <section id="menu" class="overlay menu-overlay">
+    <div class="menu-shadow"></div>
+    <div class="ribbon ribbon-a" aria-hidden="true"></div>
+    <div class="ribbon ribbon-b" aria-hidden="true"></div>
+
+    <div class="menu-layout">
+      <div class="menu-main">
+        <div class="eyebrow"><i></i> UMA DEFESA FOLCLÓRICA NA FESTA JUNINA <i></i></div>
+        <h1 class="logo">
+          <span class="logo-top">FOLCLORE</span>
+          <span class="logo-bottom">FÚRIA</span>
+        </h1>
+        <p class="tagline">A fogueira acendeu, o céu ficou roxo e a vila foi tomada. <br /><b>Segure o forró até o sol nascer.</b></p>
+
+        <button id="playBtn" class="btn-play" type="button" aria-label="Play">
+          <span class="btn-play-icon">▶</span>
+          <span>ENTRAR NA FESTA</span>
+        </button>
+
+        <div class="menu-actions">
+          <button class="chip-btn settings-toggle" data-setting="sound" type="button" aria-pressed="true">
+            <svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4zM17 9a4 4 0 0 1 0 6"/></svg>
+            <span>SOM LIGADO</span>
+          </button>
+          <button id="menuTilt" class="chip-btn tilt-toggle" type="button" aria-pressed="false">
+            <svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M3 12h1M20 12h1M12 19h.01"/></svg>
+            <span>TILT DESLIGADO</span>
+          </button>
+          <button class="chip-btn settings-toggle" data-setting="quality" type="button" aria-pressed="true">
+            <svg viewBox="0 0 24 24"><path d="m12 3 2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.2l5.9-.8z"/></svg>
+            <span>VISUAL ALTO</span>
+          </button>
+        </div>
+
+        <div class="menu-stats">
+          <span class="best-chip">RECORDE <b id="menuBest">0</b></span>
+          <span class="dot"></span>
+          <span>TOQUE + TILT</span>
+          <span class="dot"></span>
+          <span>10 ONDAS</span>
+          <span class="dot"></span>
+          <span>OFFLINE</span>
+        </div>
+
+        <p class="menu-footnote">Sem downloads extras: modelos, texturas e sons são gerados no seu aparelho.</p>
+      </div>
+
+      <aside class="menu-side">
+        <div class="cordel-card">
+          <div class="cordel-pin"></div>
+          <h2>COMO JOGAR</h2>
+          <ul>
+            <li><span class="num">1</span><p><b>Mova</b> com o analógico da esquerda.</p></li>
+            <li><span class="num">2</span><p><b>Mire</b> arrastando o polegar direito. Toque em <b>TILT</b> para mirar inclinando o aparelho.</p></li>
+            <li><span class="num">3</span><p><b>Atire</b>, recarregue e alterne entre 3 armas. Use foguetes de São João nos apertos.</p></li>
+            <li><span class="num">4</span><p><b>Sobreviva</b> a 10 ondas. Saci, Curupira, Boitatá… e dois chefes.</p></li>
+          </ul>
+          <div class="cordel-stamp">FESTA JUNINA<br />DE 2026</div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="menu-corner menu-corner-l">VILA DE SÃO JOÃO DO CERRADO</div>
+    <div class="menu-corner menu-corner-r">SOM · TOQUE · TILT</div>
+  </section>
+
+  <!-- ============================== PAUSE ============================== -->
+  <section id="pause" class="overlay modal-overlay is-hidden">
+    <div class="modal-card">
+      <div class="modal-kicker">A FOGUEIRA ESPERA</div>
+      <h2 class="modal-title">PAUSA NO FORRÓ</h2>
+      <div class="modal-stats">
+        <div><span>ONDA</span><b id="pauseWave">01</b></div>
+        <div><span>PONTOS</span><b id="pauseScore">0</b></div>
+        <div><span>ABATES</span><b id="pauseKills">0</b></div>
+      </div>
+      <div class="modal-buttons">
+        <button id="resumeBtn" class="btn-primary" type="button">CONTINUAR</button>
+        <button id="restartBtn" class="btn-secondary" type="button">REINICIAR</button>
+      </div>
+      <div class="modal-toggles">
+        <button class="chip-btn settings-toggle" data-setting="sound" type="button" aria-pressed="true">SOM LIGADO</button>
+        <button class="chip-btn tilt-toggle" type="button" aria-pressed="false">TILT DESLIGADO</button>
+        <button class="chip-btn settings-toggle" data-setting="quality" type="button" aria-pressed="true">VISUAL ALTO</button>
+        <button id="fullscreenBtn" class="chip-btn" type="button">TELA CHEIA</button>
+      </div>
+      <button id="quitBtn" class="text-btn" type="button">Voltar ao menu</button>
+    </div>
+  </section>
+
+  <!-- ============================== GAME OVER ============================== -->
+  <section id="gameover" class="overlay modal-overlay is-hidden">
+    <div class="modal-card end-card">
+      <div class="modal-kicker danger">A VILA SILENCIOU</div>
+      <h2 class="modal-title danger">A VILA CAIU</h2>
+      <p class="modal-copy">O forró virou assombro. Mas toda noite tem um novo arrebol — e uma nova chance de segurar a festa.</p>
+      <div class="end-score"><span>PONTUAÇÃO</span><b id="overScore">0</b><small id="overBest">RECORDE 0</small></div>
+      <div class="end-stats">
+        <div><span>ONDAS</span><b id="overWave">0</b></div>
+        <div><span>ABATES</span><b id="overKills">0</b></div>
+        <div><span>TEMPO</span><b id="overTime">0:00</b></div>
+      </div>
+      <div class="modal-buttons">
+        <button id="overRestart" class="btn-primary" type="button">TENTAR DE NOVO</button>
+        <button id="overMenu" class="btn-secondary" type="button">MENU</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== VICTORY ============================== -->
+  <section id="victory" class="overlay modal-overlay is-hidden">
+    <div class="modal-card end-card victory-card">
+      <div class="modal-kicker sun">O GALO CANTOU</div>
+      <h2 class="modal-title victory">AMANHECEU!</h2>
+      <p class="modal-copy">A Mula correu de volta pro cerrado, a Cuca virou fumaça e o Saci levou um chute. A vila está salva — e o forró pode continuar.</p>
+      <div class="end-score"><span>PONTUAÇÃO FINAL</span><b id="winScore">0</b><small id="winBest">RECORDE 0</small></div>
+      <div class="end-stats">
+        <div><span>ABATES</span><b id="winKills">0</b></div>
+        <div><span>TEMPO</span><b id="winTime">0:00</b></div>
+        <div><span>PRECISÃO</span><b id="winAccuracy">0%</b></div>
+      </div>
+      <div class="modal-buttons">
+        <button id="winRestart" class="btn-primary" type="button">JOGAR DE NOVO</button>
+        <button id="winMenu" class="btn-secondary" type="button">MENU</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="rotateHint" class="rotate-hint is-hidden">
+    <div>
+      <span class="rotate-phone">▭</span>
+      <b>Gire o aparelho</b>
+      <small>A festa fica melhor em paisagem.</small>
+    </div>
+  </div>
+
+  <div id="loading" class="loading">
+    <div class="loading-star">✦</div>
+    <div class="loading-title">ACENDENDO A FOGUEIRA…</div>
+    <div class="loading-track"><i></i></div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
