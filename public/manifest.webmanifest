@@ -1,0 +1,21 @@
+{
+  "name": "VOX//ARENA — Fale. Atire. Sobreviva.",
+  "short_name": "VOX//ARENA",
+  "description": "Um FPS onde tudo o que você fala vira arma.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#05030c",
+  "theme_color": "#05030c",
+  "lang": "pt-BR",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

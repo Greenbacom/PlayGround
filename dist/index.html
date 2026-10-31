@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#05030c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="VOX//ARENA — o FPS onde tudo o que você fala vira arma. Fale. Atire. Sobreviva." />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+  <title>VOX//ARENA — Fale. Atire. Sobreviva.</title>
+  <script type="module" crossorigin src="/assets/index-CAirlW0P.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-B4I8loOi.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="view" aria-label="Campo de batalha"></canvas>
+    <div class="grade" aria-hidden="true"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+
+    <!-- ============================== IN-GAME HUD ============================== -->
+    <section id="hud" class="hud is-hidden" aria-label="Interface de combate">
+      <header class="hud-top">
+        <div class="hud-brand" aria-hidden="true">VOX<span>//</span>ARENA <i id="mic-chip" class="mic-chip">MIC</i></div>
+        <div class="hud-stats">
+          <div class="stat"><small>ONDA</small><b id="stat-wave">01</b></div>
+          <div class="stat stat-score"><small>PONTOS</small><b id="stat-score">000000</b></div>
+          <div class="stat stat-kills"><small>ABATES</small><b id="stat-kills">0</b></div>
+        </div>
+        <button id="btn-pause" class="icon-btn" aria-label="Pausar" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+        </button>
+      </header>
+
+      <div class="vitals">
+        <div class="vitals-row">
+          <span class="vitals-label">INTEGRIDADE</span>
+          <b id="hp-value">100</b>
+          <span class="vitals-status" id="hp-status">ESTÁVEL</span>
+        </div>
+        <div class="hp-track"><div class="hp-fill" id="hp-fill"></div><div class="hp-ticks" aria-hidden="true"></div></div>
+      </div>
+
+      <div class="radar-wrap" aria-hidden="true">
+        <div class="radar-ring"></div>
+        <canvas id="radar" width="180" height="180"></canvas>
+        <span class="radar-label">SETOR</span>
+      </div>
+
+      <div id="crosshair" class="crosshair" aria-hidden="true">
+        <i class="ch t"></i><i class="ch r"></i><i class="ch b"></i><i class="ch l"></i><i class="ch-dot"></i>
+      </div>
+      <div id="hitmarker" class="hitmarker" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div id="damage-layer" class="damage-layer" aria-hidden="true"></div>
+      <div id="damage-vignette" class="damage-vignette" aria-hidden="true"></div>
+
+      <div class="reticle-hint" id="reticle-hint">MIRA</div>
+
+      <div class="weapon-panel" id="weapon-panel">
+        <div class="weapon-head">
+          <span class="weapon-rarity" id="weapon-rarity">SINTONIA INSTÁVEL</span>
+          <span class="weapon-amp" id="weapon-amp">100%</span>
+        </div>
+        <div class="weapon-name-row">
+          <h2 id="weapon-name">SUSSURRO</h2>
+          <span class="weapon-type" id="weapon-type">PULSO</span>
+        </div>
+        <div class="weapon-meta">
+          <div class="weapon-effect" id="weapon-effect">AUTO · PRECISÃO MÉDIA</div>
+          <div class="ammo-readout"><b id="ammo-value">∞</b><span>/</span><em id="ammo-max">∞</em></div>
+        </div>
+        <div class="ammo-pips" id="ammo-pips" aria-hidden="true"></div>
+        <div class="voice-strip" id="voice-strip">
+          <div class="voice-icon" id="voice-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5M8.5 21.5h7"/></svg>
+          </div>
+          <div class="voice-body">
+            <div class="voice-copy"><span id="voice-label">SEGURE E FALE</span><b id="voice-lang">PT-BR</b></div>
+            <div class="voice-meter"><i id="voice-meter"></i></div>
+          </div>
+          <div class="voice-bars" id="voice-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+          <button id="btn-type" class="type-mini" type="button" aria-label="Digitar palavra">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M7 13.5h.01M10.5 13.5h.01M14 13.5h.01M17 13.5h.01M8 16.5h8"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="transcript" id="transcript" aria-live="polite"></div>
+      <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+      <div class="banner" id="banner" aria-live="polite">
+        <span class="banner-kicker" id="banner-kicker">PROTOCOLO</span>
+        <b class="banner-title" id="banner-title">ONDA 01</b>
+        <span class="banner-sub" id="banner-sub">SINTA A FREQUÊNCIA</span>
+      </div>
+      <div class="forge-flash" id="forge-flash" aria-hidden="true">
+        <div class="forge-word" id="forge-word"></div>
+        <div class="forge-sub">FORJANDO ARMA</div>
+      </div>
+
+      <!-- Touch controls -->
+      <div class="touch-controls" id="touch-controls">
+        <div class="joystick" id="joystick" aria-label="Mover">
+          <div class="joystick-base"></div>
+          <div class="joystick-stick" id="joystick-stick"><i></i></div>
+          <span class="joystick-label">MOVER</span>
+        </div>
+        <div class="action-cluster">
+          <button class="voice-btn" id="btn-voice" type="button" aria-label="Segurar para falar">
+            <span class="vb-ring" id="vb-ring"></span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5M8.5 21.5h7"/></svg>
+            <small>FALAR</small>
+          </button>
+          <button class="fire-btn" id="btn-fire" type="button" aria-label="Atirar">
+            <span class="fb-inner"></span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1.5v4M12 18.5v4M1.5 12h4M18.5 12h4"/></svg>
+            <small>ATIRAR</small>
+          </button>
+        </div>
+      </div>
+
+      <!-- Desktop forge -->
+      <div class="desktop-forge" id="desktop-forge">
+        <span class="df-kicker">FORJA VOCAL</span>
+        <form id="word-form" autocomplete="off">
+          <input id="word-input" type="text" maxlength="28" placeholder="digite uma palavra e pressione ENTER" aria-label="Digite uma palavra para forjar uma arma" />
+          <kbd>ENTER</kbd>
+        </form>
+        <button id="desktop-voice" type="button" class="df-voice"><kbd>V</kbd> SEGURE PARA FALAR</button>
+      </div>
+    </section>
+
+    <!-- ============================== MENU ============================== -->
+    <section id="menu" class="screen menu" aria-label="Menu principal">
+      <div class="menu-shade"></div>
+      <div class="menu-grain" aria-hidden="true"></div>
+      <div class="menu-topline">
+        <span>PROTOCOLO DE COMBATE VOCAL</span>
+        <span class="menu-topline-right">SETOR 07 <i></i> SINAL ATIVO</span>
+      </div>
+
+      <div class="menu-hero">
+        <div class="menu-eyebrow"><i></i> ÁUDIO É MUNIÇÃO</div>
+        <h1 class="logo" aria-label="VOX Arena">
+          <span class="logo-vox">VOX</span><span class="logo-slash">//</span><span class="logo-arena">ARENA</span>
+        </h1>
+        <p class="menu-tagline">TUDO O QUE VOCÊ FALA VIRA ARMA.</p>
+        <p class="menu-lede">Segure o microfone e diga qualquer coisa — <em>banana, trovão, café</em> — e a forja vocal transforma sua voz em fogo. Sem microfone? Digite a palavra. O campo responde do mesmo jeito.</p>
+
+        <div class="menu-actions">
+          <button id="btn-play" class="play-btn" type="button" aria-label="Play">
+            <span class="play-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5-11-6.5Z"/></svg></span>
+            <span class="play-copy"><b>JOGAR</b><small>ENTRAR NA ARENA</small></span>
+            <span class="play-scan" aria-hidden="true"></span>
+          </button>
+          <button id="btn-menu-settings" class="ghost-btn" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.36a1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.64 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.64a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.36 9c.14.61.66 1.06 1.29 1.06H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51.94Z"/></svg>
+            AJUSTES
+          </button>
+        </div>
+
+        <div class="menu-chips">
+          <div class="chip"><b>01</b><span>SEGURE O MIC<br>E FALE</span></div>
+          <div class="chip"><b>02</b><span>SUA PALAVRA<br>VIRA ARMA</span></div>
+          <div class="chip"><b>03</b><span>SOBREVIVA<br>ÀS ONDAS</span></div>
+        </div>
+      </div>
+
+      <div class="menu-side" aria-hidden="true">
+        <div class="side-orbit">
+          <span class="orbit o1"></span><span class="orbit o2"></span><span class="orbit o3"></span>
+          <div class="side-core"></div>
+          <span class="side-tag">VOX CORE</span>
+        </div>
+        <div class="side-readout">
+          <span>FREQ <b>432.07</b></span>
+          <span>SAÍDA <b>98.4%</b></span>
+          <span>ARMAS <b id="side-weapons">∞</b></span>
+        </div>
+      </div>
+
+      <footer class="menu-footer">
+        <span>VOX//ARENA · EXPERIÊNCIA AUDIOVISUAL</span>
+        <span class="footer-mid">FONES RECOMENDADOS</span>
+        <span>v1.0 <i></i> WEBGL</span>
+      </footer>
+    </section>
+
+    <!-- ============================== FORGE (TYPED) ============================== -->
+    <section id="forge-modal" class="screen modal-screen is-hidden" aria-label="Forja vocal manual">
+      <div class="modal forge-modal">
+        <header class="modal-head">
+          <div><span class="modal-kicker">ENTRADA MANUAL</span><h2>FORJA VOCAL</h2></div>
+          <button id="btn-close-forge" class="icon-btn" aria-label="Fechar forja" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </header>
+        <p class="forge-copy">A voz não pegou? Escreva qualquer coisa. A arena transforma a palavra em arma do mesmo jeito.</p>
+        <form id="forge-form" class="forge-form" autocomplete="off">
+          <input id="forge-input" type="text" maxlength="30" placeholder="banana, trovão, café, saudade…" aria-label="Palavra para a forja vocal" />
+          <button class="mini-btn forge-go" type="submit">FORJAR</button>
+        </form>
+        <div class="forge-samples">
+          <button type="button" data-word="TROVÃO">TROVÃO</button>
+          <button type="button" data-word="BANANA">BANANA</button>
+          <button type="button" data-word="GELO">GELO</button>
+          <button type="button" data-word="CAFÉ">CAFÉ</button>
+          <button type="button" data-word="SAUDADE">SAUDADE</button>
+        </div>
+        <p class="settings-note">Dica: superlativos mudam as estatísticas. Tente <b>MEGA FOGO</b>, <b>MINI LASER</b> ou <b>TROVÃO INFINITO</b>.</p>
+      </div>
+    </section>
+
+    <!-- ============================== SETTINGS ============================== -->
+    <section id="settings" class="screen modal-screen is-hidden" aria-label="Ajustes">
+      <div class="modal">
+        <header class="modal-head">
+          <div><span class="modal-kicker">SISTEMA</span><h2>AJUSTES</h2></div>
+          <button id="btn-close-settings" class="icon-btn" aria-label="Fechar ajustes" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </header>
+        <div class="setting-group">
+          <div class="setting-copy"><b>IDIOMA DO DITADO</b><small>A fala é interpretada neste idioma.</small></div>
+          <div class="segmented" id="lang-seg" role="group" aria-label="Idioma do ditado">
+            <button type="button" data-lang="pt-BR" class="is-on">PT-BR</button>
+            <button type="button" data-lang="en-US">EN-US</button>
+          </div>
+        </div>
+        <div class="setting-group">
+          <div class="setting-copy"><b>INCLINAÇÃO</b><small>Mira com o acelerômetro/giroscópio. Opcional.</small></div>
+          <button id="btn-tilt" class="switch" type="button" role="switch" aria-checked="false"><i></i><span>OFF</span></button>
+        </div>
+        <div class="setting-group" id="recal-row" hidden>
+          <div class="setting-copy"><b>CENTRALIZAR MIRA</b><small>Volte o aparelho à posição neutra e toque.</small></div>
+          <button id="btn-recal" class="mini-btn" type="button">RECALIBRAR</button>
+        </div>
+        <div class="setting-group">
+          <div class="setting-copy"><b>SENSIBILIDADE</b><small>Velocidade da mira por toque/mouse.</small></div>
+          <div class="range-wrap"><input id="sens" type="range" min="0.5" max="2" step="0.05" value="1" aria-label="Sensibilidade" /><output id="sens-value">1.00×</output></div>
+        </div>
+        <div class="setting-group">
+          <div class="setting-copy"><b>SOM</b><small>Trilha e efeitos sintetizados.</small></div>
+          <button id="btn-sound" class="switch is-on" type="button" role="switch" aria-checked="true"><i></i><span>ON</span></button>
+        </div>
+        <div class="setting-group">
+          <div class="setting-copy"><b>VIBRAÇÃO</b><small>Retorno tátil nos disparos e impactos.</small></div>
+          <button id="btn-haptics" class="switch is-on" type="button" role="switch" aria-checked="true"><i></i><span>ON</span></button>
+        </div>
+        <div class="setting-group">
+          <div class="setting-copy"><b>TELA CHEIA</b><small>Melhor experiência em celulares e tablets.</small></div>
+          <button id="btn-fullscreen" class="mini-btn" type="button">ATIVAR</button>
+        </div>
+        <p class="settings-note">No iOS, a inclinação pede permissão de movimento. O microfone só é usado durante a partida e nunca sai do seu aparelho.</p>
+      </div>
+    </section>
+
+    <!-- ============================== PAUSE ============================== -->
+    <section id="pause" class="screen modal-screen is-hidden" aria-label="Pausa">
+      <div class="modal pause-modal">
+        <span class="modal-kicker">SINAL SUSPENSO</span>
+        <h2>PAUSA</h2>
+        <p class="pause-sub">Respire. A frequência espera.</p>
+        <div class="pause-box">
+          <div><small>ONDA</small><b id="pause-wave">01</b></div>
+          <div><small>PONTOS</small><b id="pause-score">0</b></div>
+          <div><small>ABATES</small><b id="pause-kills">0</b></div>
+        </div>
+        <div class="pause-actions">
+          <button id="btn-resume" class="play-btn compact" type="button"><span class="play-icon"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5-11-6.5Z"/></svg></span><span class="play-copy"><b>CONTINUAR</b></span></button>
+          <button id="btn-pause-settings" class="ghost-btn" type="button">AJUSTES</button>
+          <button id="btn-restart" class="ghost-btn danger" type="button">REINICIAR</button>
+        </div>
+        <p class="pause-hint">Toque no microfone e fale para trocar de arma a qualquer momento.</p>
+      </div>
+    </section>
+
+    <!-- ============================== GAME OVER ============================== -->
+    <section id="gameover" class="screen modal-screen is-hidden" aria-label="Fim de jogo">
+      <div class="modal over-modal">
+        <span class="modal-kicker">CONEXÃO PERDIDA</span>
+        <h2>SINAL<br><em>ENCOBERTO</em></h2>
+        <p class="over-sub">A arena silenciou. Mas toda voz volta.</p>
+        <div class="over-stats">
+          <div><small>ONDA ALCANÇADA</small><b id="over-wave">01</b></div>
+          <div><small>PONTUAÇÃO</small><b id="over-score">0</b></div>
+          <div><small>ABATES</small><b id="over-kills">0</b></div>
+          <div><small>ARMA FAVORITA</small><b id="over-weapon">—</b></div>
+        </div>
+        <button id="btn-again" class="play-btn" type="button" aria-label="Play again">
+          <span class="play-icon"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5-11-6.5Z"/></svg></span>
+          <span class="play-copy"><b>TENTAR DE NOVO</b><small>VOLTAR À ARENA</small></span>
+        </button>
+      </div>
+    </section>
+
+    <div id="boot" class="boot">
+      <div class="boot-core"><i></i><i></i><i></i></div>
+      <span>CALIBRANDO A FORJA VOCAL</span>
+    </div>
+    <div id="rotate-hint" class="rotate-hint">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10 19.5h4"/></svg>
+      <span>GIRE O APARELHO PARA UMA VISÃO MAIS AMPLA</span>
+    </div>
+  </div>
+</body>
+</html>
