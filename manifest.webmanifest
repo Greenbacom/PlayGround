@@ -1,0 +1,13 @@
+{
+  "name": "MANDACARU — Última Linha",
+  "short_name": "MANDACARU",
+  "description": "Um FPS de laje inspirado no Brasil. Proteja o farol da comunidade.",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0d0a13",
+  "theme_color": "#100c16",
+  "icons": [
+    { "src": "./assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
