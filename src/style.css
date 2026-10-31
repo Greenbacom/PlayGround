@@ -835,6 +835,147 @@ input:focus-visible {
   justify-self: end;
 }
 
+/* Harvest tracker: blocks collected toward the spoken weapon */
+.harvest-hud {
+  --harvest-accent: var(--weapon-accent);
+  position: absolute;
+  top: calc(94px + var(--safe-top));
+  left: 50%;
+  width: min(430px, 47vw);
+  padding: 10px 15px 11px;
+  transform: translateX(-50%);
+  background:
+    linear-gradient(105deg, rgba(7, 13, 19, 0.9), rgba(7, 13, 19, 0.58) 72%, rgba(7, 13, 19, 0.32)),
+    linear-gradient(90deg, rgba(var(--weapon-accent-rgb), 0.09), transparent 62%);
+  border: 1px solid rgba(189, 220, 232, 0.16);
+  border-top: 2px solid var(--harvest-accent);
+  clip-path: polygon(0 0, calc(100% - 13px) 0, 100% 13px, 100% 100%, 0 100%);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  animation: harvest-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes harvest-in {
+  from { opacity: 0; transform: translate(-50%, -7px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.harvest-hud.complete {
+  border-top-color: var(--acid);
+  animation: harvest-done 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes harvest-done {
+  0% { filter: brightness(1); }
+  38% { filter: brightness(2.1); }
+  100% { filter: brightness(1); }
+}
+
+.harvest-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--display);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  color: var(--muted-2);
+}
+
+.harvest-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--harvest-accent);
+}
+
+.harvest-kicker b {
+  font-weight: inherit;
+}
+
+.harvest-kicker .pulse-dot {
+  background: var(--harvest-accent);
+  box-shadow: 0 0 7px var(--harvest-accent);
+}
+
+.harvest-words {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.harvest-phrase {
+  display: block;
+  margin: 6px 0 8px;
+  font-family: var(--display);
+  font-size: clamp(14px, 1.55vw, 19px);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 0 18px rgba(var(--weapon-accent-rgb), 0.22);
+}
+
+.harvest-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.harvest-track {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  background: rgba(3, 8, 13, 0.78);
+  border: 1px solid rgba(189, 220, 232, 0.17);
+  overflow: hidden;
+}
+
+.harvest-track i {
+  display: block;
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(var(--weapon-accent-rgb), 0.55), var(--harvest-accent));
+  box-shadow: 0 0 12px rgba(var(--weapon-accent-rgb), 0.55);
+  transition: width 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.harvest-count {
+  flex: 0 0 auto;
+  font-family: var(--display);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.harvest-count b {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--harvest-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.harvest-hint {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--display);
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  color: var(--muted-2);
+  text-transform: uppercase;
+}
+
+.harvest-hud.complete .harvest-hint {
+  color: var(--acid);
+}
+
 /* Mic cluster */
 .hud-side {
   position: absolute;
@@ -1989,6 +2130,21 @@ input:focus-visible {
     right: 0;
   }
 
+  .harvest-hud {
+    top: calc(80px + var(--safe-top));
+    width: min(88vw, 340px);
+    padding: 8px 12px 9px;
+  }
+
+  .harvest-phrase {
+    margin: 4px 0 6px;
+    font-size: 14px;
+  }
+
+  .harvest-hint {
+    display: none;
+  }
+
   .hud-bottom {
     padding-left: calc(15px + var(--safe-left));
     padding-right: calc(15px + var(--safe-right));
@@ -2156,6 +2312,21 @@ input:focus-visible {
   .menu {
     padding-top: calc(12px + var(--safe-top));
     padding-bottom: calc(10px + var(--safe-bottom));
+  }
+
+  .harvest-hud {
+    top: calc(64px + var(--safe-top));
+    width: min(370px, 42vw);
+    padding: 7px 12px 8px;
+  }
+
+  .harvest-phrase {
+    margin: 3px 0 5px;
+    font-size: 13px;
+  }
+
+  .harvest-hint {
+    display: none;
   }
 
   .menu-content {

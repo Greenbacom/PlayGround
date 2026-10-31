@@ -43,6 +43,14 @@ const els = {
   statDamageNum: $('stat-damage-num'),
   statRate: $('stat-rate'),
   statRateNum: $('stat-rate-num'),
+  harvestHud: $('harvest-hud'),
+  harvestKicker: $('harvest-kicker'),
+  harvestWords: $('harvest-words'),
+  harvestPhrase: $('harvest-phrase'),
+  harvestCount: $('harvest-count'),
+  harvestTotal: $('harvest-total'),
+  harvestFill: $('harvest-fill'),
+  harvestHint: $('harvest-hint'),
   transcript: $('transcript'),
   transcriptText: $('transcript-text'),
   voiceHint: $('voice-hint'),
@@ -116,6 +124,7 @@ const state = {
   lastPhraseAt: 0,
   transcriptResetTimer: null,
   toastTimer: null,
+  harvestHideTimer: null,
   menuAnimationTimer: null,
   damageFlashTimer: null,
   scorePopTimer: null,
@@ -180,7 +189,33 @@ function resetTranscript() {
     updateTranscript('Microfone desligado. Toque no ícone para reativar.', false);
     return;
   }
-  updateTranscript('Diga qualquer coisa para forjar uma arma.', false);
+  updateTranscript('Diga uma arma e colete os bloquinhos no mapa.', false);
+}
+
+function updateHarvestUi(harvest) {
+  if (!harvest) {
+    hideHarvestUi();
+    return;
+  }
+  clearTimeout(state.harvestHideTimer);
+  els.harvestHud.classList.remove('complete');
+  els.harvestHud.classList.remove('is-hidden');
+  els.harvestHud.style.setProperty('--harvest-accent', harvest.weapon?.accent || '#d7ff45');
+  const wordCount = harvest.words.length;
+  els.harvestWords.textContent = `${wordCount} ${wordCount === 1 ? 'PALAVRA' : 'PALAVRAS'} × 10`;
+  els.harvestKicker.textContent = 'FORJA EM COLETA';
+  els.harvestPhrase.textContent = harvest.weapon?.title || harvest.phrase;
+  els.harvestTotal.textContent = String(harvest.total);
+  els.harvestCount.textContent = String(harvest.collected);
+  const percent = harvest.total > 0 ? (harvest.collected / harvest.total) * 100 : 0;
+  els.harvestFill.style.width = `${percent}%`;
+  els.harvestHint.textContent = 'Pise nos bloquinhos de cada palavra para juntar a arma.';
+}
+
+function hideHarvestUi() {
+  clearTimeout(state.harvestHideTimer);
+  els.harvestHud.classList.add('is-hidden');
+  els.harvestHud.classList.remove('complete');
 }
 
 function formatNumber(value) {
@@ -246,10 +281,43 @@ const gameCallbacks = {
       els.weaponCard.classList.remove('materialize');
       void els.weaponCard.offsetWidth;
       els.weaponCard.classList.add('materialize');
-      showToast(`ARMA MATERIALIZADA • ${weapon.rarity.label}`);
+      if (els.harvestHud.classList.contains('is-hidden')) {
+        showToast(`ARMA MATERIALIZADA • ${weapon.rarity.label}`);
+      }
       flashDamage();
       pulseHaptic(18);
     }
+  },
+
+  onHarvestStart(harvest) {
+    if (!harvest) return;
+    updateHarvestUi(harvest);
+    updateTranscript(`Coletando “${harvest.phrase}” • 0/${harvest.total} bloquinhos`, false);
+  },
+
+  onHarvestProgress(harvest) {
+    if (!harvest) return;
+    updateHarvestUi(harvest);
+    updateTranscript(`Coletando “${harvest.phrase}” • ${harvest.collected}/${harvest.total} bloquinhos`, false);
+    if (harvest.collected % 10 === 0) pulseHaptic(8);
+  },
+
+  onHarvestComplete(harvest) {
+    if (!harvest) return;
+    updateHarvestUi(harvest);
+    els.harvestHud.classList.add('complete');
+    els.harvestKicker.textContent = 'FORJA PRONTA';
+    els.harvestHint.textContent = 'FORJA PRONTA • ARMA MATERIALIZADA';
+    updateTranscript(`“${harvest.phrase}” → ${harvest.weapon.kind}`, false);
+    clearTimeout(state.harvestHideTimer);
+    state.harvestHideTimer = setTimeout(() => {
+      hideHarvestUi();
+      state.harvestHideTimer = null;
+    }, 1900);
+  },
+
+  onHarvestCancel() {
+    hideHarvestUi();
   },
 
   onHealth(value, max) {
@@ -355,6 +423,7 @@ const gameCallbacks = {
       els.finalWeapon.querySelector('b').textContent = result.weapon?.title || '—';
       document.documentElement.style.setProperty('--weapon-accent', result.weapon?.accent || '#d7ff45');
       document.documentElement.style.setProperty('--weapon-accent-rgb', result.weapon?.accentRgb || '215, 255, 69');
+      hideHarvestUi();
       showModal(els.gameoverModal);
       releaseTouchControls();
       if (document.pointerLockElement) document.exitPointerLock?.();
@@ -373,6 +442,7 @@ function createGame() {
       game: state.game,
       audio,
       forge: (phrase) => state.game.forgeWeapon(phrase),
+      harvest: () => state.game.getHarvestState(),
       start: (voice = false) => startSession(Boolean(voice), true),
       togglePause: () => togglePause(),
       spawn: () => {
@@ -496,6 +566,7 @@ function startSession(withVoice, instant = false) {
   }
   els.hud.classList.remove('is-hidden');
   state.game.startRun();
+  hideHarvestUi();
   resetTranscript();
   updateMicUI(state.voiceWanted);
   requestAnimationFrame(() => {
@@ -510,6 +581,7 @@ function returnToMenu() {
   stopVoice();
   releaseTouchControls();
   state.game.showMenu();
+  hideHarvestUi();
   hideModal(els.pauseModal);
   hideModal(els.gameoverModal);
   hideModal(els.typeModal);
@@ -529,6 +601,7 @@ function restartSession() {
   state.runToken += 1;
   state.lastHealthShown = 100;
   state.game.startRun();
+  hideHarvestUi();
   els.hud.classList.remove('is-hidden');
   els.menu.classList.add('is-hidden');
   resetTranscript();
@@ -790,10 +863,16 @@ function forgeFromSpeech(phrase) {
   const key = clean.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const now = performance.now();
   if (key === state.lastPhrase && now - state.lastPhraseAt < 1400) return;
+  // Speech recognition can split one utterance into several final chunks.
+  // Do not restart an active harvest with those fragments.
+  if (state.game.getHarvestState() && now - state.lastPhraseAt < 2200) return;
   state.lastPhrase = key;
   state.lastPhraseAt = now;
   const weapon = state.game.forgeWeapon(clean);
-  if (weapon) {
+  const harvest = state.game.getHarvestState();
+  if (weapon && harvest) {
+    updateTranscript(`Coletando “${clean}” • 0/${harvest.total} bloquinhos`, false);
+  } else if (weapon) {
     showToast(`“${clean}” → ${weapon.kind}`);
   }
 }
@@ -1258,11 +1337,16 @@ function setupInterface() {
       els.typeInput.focus();
       return;
     }
-    if (state.game) {
-      const weapon = state.game.forgeWeapon(phrase);
-      updateTranscript(`“${phrase}” → ${weapon?.kind || 'MATERIALIZADA'}`, false);
-    }
     closeTypeModal();
+    if (state.game && state.game.mode === 'playing') {
+      const weapon = state.game.forgeWeapon(phrase);
+      const harvest = state.game.getHarvestState();
+      if (weapon && harvest) {
+        updateTranscript(`Coletando “${phrase}” • 0/${harvest.total} bloquinhos`, false);
+      } else if (weapon) {
+        updateTranscript(`“${phrase}” → ${weapon.kind}`, false);
+      }
+    }
   });
 
   document.querySelectorAll('[data-phrase]').forEach((button) => {

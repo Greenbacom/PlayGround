@@ -209,6 +209,12 @@ export class AudioEngine {
     this.noise({ duration: 0.22, gain: 0.11, type: 'lowpass', frequency: 480 });
   }
 
+  pickup(progress = 0) {
+    if (!this.ctx || this.muted) return;
+    const pitch = 440 + Math.min(1, Math.max(0, progress)) * 560;
+    this.tone({ from: pitch, to: pitch * 1.45, duration: 0.065, gain: 0.026, type: 'triangle' });
+  }
+
   materialize() {
     if (!this.ctx || this.muted) return;
     const ctx = this.ctx;

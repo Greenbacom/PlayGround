@@ -18,6 +18,7 @@ const tempV = new THREE.Vector3();
 const tempV2 = new THREE.Vector3();
 const tempQ = new THREE.Quaternion();
 const tempSphere = new THREE.Sphere();
+const harvestDummy = new THREE.Object3D();
 const rayOrigin = new THREE.Vector3();
 const rayDirection = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
@@ -121,6 +122,66 @@ function makeTextTexture(text, subtext = '') {
   return texture;
 }
 
+const BLOCKS_PER_WORD = 10;
+
+function harvestWords(phrase) {
+  const words = String(phrase || '')
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''))
+    .filter(Boolean);
+  return words.length > 0 ? words : ['ARMA'];
+}
+
+function makeWordLabelTexture(word, color = '#d7ff45') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 160;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 512, 160);
+
+  // A dark, clipped plate keeps the word readable over neon and bloom.
+  const x = 10;
+  const y = 12;
+  const w = 492;
+  const h = 136;
+  const cut = 18;
+  ctx.beginPath();
+  ctx.moveTo(x + cut, y);
+  ctx.lineTo(x + w, y);
+  ctx.lineTo(x + w, y + h - cut);
+  ctx.lineTo(x + w - cut, y + h);
+  ctx.lineTo(x, y + h);
+  ctx.lineTo(x, y + cut);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(4, 9, 14, 0.78)';
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.7;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  let fontSize = Math.min(62, 430 / Math.max(1, word.length * 0.56));
+  ctx.textAlign = 'center';
+  ctx.font = `700 ${fontSize}px "Chakra Petch", "Arial Narrow", Arial, sans-serif`;
+  while (ctx.measureText(word).width > 430 && fontSize > 20) {
+    fontSize -= 2;
+    ctx.font = `700 ${fontSize}px "Chakra Petch", "Arial Narrow", Arial, sans-serif`;
+  }
+  ctx.fillStyle = '#f3f7f1';
+  ctx.fillText(word, 256, 82);
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.72;
+  ctx.font = '600 19px "Chakra Petch", Arial, sans-serif';
+  ctx.fillText(`${BLOCKS_PER_WORD} BLOQUINHOS`, 256, 118);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  return texture;
+}
+
 /* ============================================================
    Game
    ============================================================ */
@@ -154,6 +215,7 @@ export class Game {
     this.weapon = null;
     this.weaponModel = null;
     this.weaponHistory = [];
+    this.harvest = null;
     this.fireHeld = false;
     this.waveState = 'idle';
     this.waveTimer = 0;
@@ -839,6 +901,7 @@ export class Game {
     this.fireHeld = false;
     this.controls.fire = false;
     this.shake = 0.9;
+    this.clearHarvest(true);
     this.callbacks.onGameOver?.({
       score: this.score,
       wave: Math.max(1, this.wave),
@@ -848,6 +911,7 @@ export class Game {
   }
 
   clearRunEntities() {
+    this.clearHarvest(false);
     while (this.enemies.length > 0) this.removeEnemy(this.enemies[0], false);
     for (const projectile of this.projectiles) this.disposeMesh(projectile.mesh);
     this.projectiles.length = 0;
@@ -894,12 +958,306 @@ export class Game {
     this.callbacks.onWeapon?.(weapon, animate);
   }
 
-  forgeWeapon(phrase) {
+  forgeWeapon(phrase, options = {}) {
     const weapon = createWeaponFromPhrase(phrase);
-    this.setWeapon(weapon, true);
-    this.callbacks.onForge?.(weapon);
-    this.audio?.materialize();
+    if (options.instant || this.mode !== 'playing') {
+      this.clearHarvest(false);
+      this.setWeapon(weapon, true);
+      this.callbacks.onForge?.(weapon);
+      this.audio?.materialize();
+      return weapon;
+    }
+
+    this.beginHarvest(weapon);
     return weapon;
+  }
+
+  /* ============================================================
+     Block harvest: every word of the phrase costs 10 map blocks.
+     ============================================================ */
+
+  beginHarvest(weapon) {
+    this.clearHarvest(true);
+    const words = harvestWords(weapon.phrase);
+    const total = words.length * BLOCKS_PER_WORD;
+    const color = weapon.element.color;
+
+    const group = new THREE.Group();
+    this.scene.add(group);
+
+    const blockGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+    const blockMaterial = new THREE.MeshStandardMaterial({
+      color: 0x0d1a22,
+      emissive: color,
+      emissiveIntensity: 0.88,
+      metalness: 0.38,
+      roughness: 0.3,
+    });
+    const mesh = new THREE.InstancedMesh(blockGeometry, blockMaterial, total);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.frustumCulled = false;
+    group.add(mesh);
+
+    const beamGeometry = new THREE.CylinderGeometry(0.035, 0.11, 5, 6, 1, true);
+    const beamMaterial = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.19,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const ringGeometry = new THREE.RingGeometry(1.42, 1.5, 34);
+    const ringMaterial = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.42,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+
+    const blocks = [];
+    const labels = [];
+    const anchors = [];
+    const ringCount = Math.min(3, Math.max(1, Math.ceil(words.length / 10)));
+    const baseAngle = rand(0, TAU);
+
+    for (let i = 0; i < words.length; i += 1) {
+      const ring = i % ringCount;
+      const lane = Math.floor(i / ringCount);
+      const laneCount = Math.ceil((words.length - ring) / ringCount);
+      const angle = baseAngle + (lane / laneCount) * TAU + ring * 0.24 + rand(-0.08, 0.08);
+      const radius = (ringCount === 1 ? 14.2 : 10.8 + ring * 4.2) + rand(-0.9, 0.9);
+      let x = Math.cos(angle) * radius;
+      let z = Math.sin(angle) * radius;
+
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const a = angle + (attempt % 2 ? 1 : -1) * Math.ceil(attempt / 2) * 0.22;
+        const r = radius + (attempt % 3) * 0.55;
+        x = Math.cos(a) * r;
+        z = Math.sin(a) * r;
+        const clearOfProps = this.obstacles.every((obstacle) => Math.hypot(x - obstacle.x, z - obstacle.z) > obstacle.radius + 2.1);
+        const clearOfGroups = anchors.every((anchor) => Math.hypot(x - anchor.x, z - anchor.z) > 3.1);
+        if (clearOfProps && clearOfGroups && Math.hypot(x, z) > 5.2) break;
+      }
+
+      anchors.push({ x, z });
+
+      const labelTexture = makeWordLabelTexture(words[i].toUpperCase(), weapon.element.hex);
+      const label = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: labelTexture, transparent: true, depthWrite: false, depthTest: false }),
+      );
+      label.position.set(x, 3, z);
+      label.scale.set(3, 0.94, 1);
+      label.renderOrder = 6;
+      group.add(label);
+      labels.push({ sprite: label, phase: rand(0, TAU), x, z });
+
+      const beam = new THREE.Mesh(beamGeometry, beamMaterial);
+      beam.position.set(x, 2.5, z);
+      group.add(beam);
+
+      const floorRing = new THREE.Mesh(ringGeometry, ringMaterial);
+      floorRing.rotation.x = -Math.PI / 2;
+      floorRing.position.set(x, 0.035, z);
+      group.add(floorRing);
+
+      for (let n = 0; n < BLOCKS_PER_WORD; n += 1) {
+        const outer = n >= BLOCKS_PER_WORD / 2;
+        const slot = n % (BLOCKS_PER_WORD / 2);
+        const localAngle = (slot / (BLOCKS_PER_WORD / 2)) * TAU + (outer ? Math.PI / 5 : 0);
+        const localRadius = outer ? 1.32 : 0.72;
+        blocks.push({
+          x: x + Math.cos(localAngle) * localRadius,
+          z: z + Math.sin(localAngle) * localRadius,
+          baseY: rand(0.48, 0.68),
+          phase: rand(0, TAU),
+          spin: rand(0.75, 1.75),
+          scale: rand(0.82, 1.12),
+          collected: false,
+        });
+      }
+    }
+
+    this.harvest = {
+      phrase: weapon.phrase,
+      weapon,
+      words,
+      total,
+      collected: 0,
+      blocks,
+      labels,
+      group,
+      mesh,
+      color,
+      completed: false,
+    };
+
+    // Paint the first frame immediately so the blocks never flash at the origin.
+    for (let i = 0; i < blocks.length; i += 1) {
+      const block = blocks[i];
+      harvestDummy.position.set(block.x, block.baseY, block.z);
+      harvestDummy.rotation.set(block.phase, block.phase, 0);
+      harvestDummy.scale.setScalar(block.scale);
+      harvestDummy.updateMatrix();
+      mesh.setMatrixAt(i, harvestDummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+
+    this.callbacks.onHarvestStart?.(this.harvestSnapshot());
+    this.audio?.ui(true);
+    return this.harvest;
+  }
+
+  harvestSnapshot() {
+    if (!this.harvest) return null;
+    const harvest = this.harvest;
+    return {
+      phrase: harvest.phrase,
+      words: harvest.words.slice(),
+      total: harvest.total,
+      collected: harvest.collected,
+      remaining: harvest.total - harvest.collected,
+      weapon: harvest.weapon,
+      completed: harvest.completed,
+    };
+  }
+
+  getHarvestState() {
+    return this.harvestSnapshot();
+  }
+
+  clearHarvest(notify = false) {
+    const harvest = this.harvest;
+    if (!harvest) return;
+    this.harvest = null;
+
+    const snapshot = {
+      phrase: harvest.phrase,
+      words: harvest.words.slice(),
+      total: harvest.total,
+      collected: harvest.collected,
+      remaining: harvest.total - harvest.collected,
+      weapon: harvest.weapon,
+      completed: harvest.completed,
+    };
+
+    if (harvest.group) {
+      this.scene.remove(harvest.group);
+      const geometries = new Set();
+      const materials = new Set();
+      harvest.group.traverse((child) => {
+        if (child.geometry) geometries.add(child.geometry);
+        if (child.material) {
+          const list = Array.isArray(child.material) ? child.material : [child.material];
+          for (const material of list) {
+            materials.add(material);
+            material.map?.dispose();
+          }
+        }
+      });
+      harvest.mesh?.dispose?.();
+      for (const geometry of geometries) geometry.dispose();
+      for (const material of materials) material.dispose();
+    }
+
+    if (notify) this.callbacks.onHarvestCancel?.(snapshot);
+  }
+
+  updateHarvest(dt) {
+    const harvest = this.harvest;
+    if (!harvest || harvest.completed || this.mode !== 'playing') return;
+
+    const px = this.player.x;
+    const pz = this.player.z;
+    let collectedAny = false;
+
+    for (let i = 0; i < harvest.blocks.length; i += 1) {
+      const block = harvest.blocks[i];
+      if (block.collected) continue;
+
+      const dx = px - block.x;
+      const dz = pz - block.z;
+      const distance = Math.hypot(dx, dz);
+
+      // Nearby blocks are pulled toward the operator, so walking through a
+      // cluster feels magnetic instead of pixel-perfect.
+      if (distance < 3.1 && distance > 0.001) {
+        const pull = Math.min(1, dt * (distance < 1.4 ? 15 : 6.5));
+        block.x += dx * pull;
+        block.z += dz * pull;
+        block.baseY += (1.05 - block.baseY) * Math.min(1, dt * 5.5);
+      }
+
+      if (Math.hypot(px - block.x, pz - block.z) < 0.78) {
+        block.collected = true;
+        harvest.collected += 1;
+        collectedAny = true;
+        harvestDummy.position.set(block.x, block.baseY, block.z);
+        harvestDummy.rotation.set(0, 0, 0);
+        harvestDummy.scale.setScalar(0);
+        harvestDummy.updateMatrix();
+        harvest.mesh.setMatrixAt(i, harvestDummy.matrix);
+        this.burstAt(
+          new THREE.Vector3(block.x, block.baseY, block.z),
+          harvest.color,
+          4,
+          { speed: 2.6, size: 0.08, life: 0.32, upward: 0.12 },
+        );
+        this.audio?.pickup?.(harvest.collected / harvest.total);
+        this.callbacks.onHarvestProgress?.(this.harvestSnapshot());
+
+        if (harvest.collected >= harvest.total) {
+          this.finishHarvest();
+          return;
+        }
+        continue;
+      }
+
+      const bob = block.baseY + Math.sin(this.time * 2.15 + block.phase) * 0.075;
+      harvestDummy.position.set(block.x, bob, block.z);
+      harvestDummy.rotation.set(
+        this.time * block.spin * 0.55 + block.phase,
+        this.time * block.spin + block.phase,
+        0,
+      );
+      harvestDummy.scale.setScalar(block.scale);
+      harvestDummy.updateMatrix();
+      harvest.mesh.setMatrixAt(i, harvestDummy.matrix);
+    }
+
+    if (collectedAny) harvest.mesh.instanceMatrix.needsUpdate = true;
+
+    for (const label of harvest.labels) {
+      label.sprite.position.y = 3 + Math.sin(this.time * 1.45 + label.phase) * 0.09;
+      const breathe = 1 + Math.sin(this.time * 1.8 + label.phase) * 0.025;
+      label.sprite.scale.set(3 * breathe, 0.94 * breathe, 1);
+      const distance = Math.hypot(this.player.x - label.x, this.player.z - label.z);
+      label.sprite.material.opacity = clamp((distance - 4.5) / 4.5, 0, 1);
+    }
+  }
+
+  finishHarvest() {
+    const harvest = this.harvest;
+    if (!harvest || harvest.completed) return;
+    harvest.completed = true;
+    harvest.collected = harvest.total;
+
+    const snapshot = {
+      phrase: harvest.phrase,
+      words: harvest.words.slice(),
+      total: harvest.total,
+      collected: harvest.total,
+      remaining: 0,
+      weapon: harvest.weapon,
+      completed: true,
+    };
+
+    this.clearHarvest(false);
+    this.setWeapon(harvest.weapon, true);
+    this.callbacks.onForge?.(harvest.weapon);
+    this.callbacks.onHarvestComplete?.(snapshot);
+    this.audio?.materialize();
   }
 
   spawnForgeRing(weapon) {
@@ -1836,6 +2194,7 @@ export class Game {
 
     this.player.invulnerable = Math.max(0, this.player.invulnerable - dt);
     this.updatePlayer(dt);
+    this.updateHarvest(dt);
     this.updateWave(dt);
     this.updateEnemies(dt);
     this.updateProjectiles(dt);

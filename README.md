@@ -2,7 +2,7 @@
 
 **O FPS onde tudo o que você fala vira arma.**
 
-VOX//ARENA é um jogo de tiro em primeira pessoa feito para rodar direto no navegador. Fale uma frase — “canhão de plasma supersônico”, “metralhadora de gelo”, “laser tóxico” — e a forja interpreta elemento, tipo, raridade, dano e cadência para materializar uma arma procedural em 3D.
+VOX//ARENA é um jogo de tiro em primeira pessoa feito para rodar direto no navegador. Fale uma frase — “canhão de plasma supersônico”, “metralhadora de gelo”, “laser tóxico” — e a forja transforma as palavras em uma receita de coleta: são **10 bloquinhos do mapa para cada palavra**. Junte todos e a arma procedural se materializa em 3D.
 
 Jogue no computador com teclado e mouse, ou no celular e tablet com controles de toque e inclinação opcional.
 
@@ -43,6 +43,20 @@ npm run preview
 - **Teclado** no HUD abre a entrada manual de frases.
 - **Inclinação** (opcional): ative na tela inicial ou no menu de pausa. No iOS, a permissão de movimento é solicitada no primeiro toque. Use “Recalibrar inclinação” para definir a posição atual como neutra.
 
+## Forja por coleta
+
+A frase não entrega a arma na hora: ela abre uma coleta na arena.
+
+- **10 bloquinhos por palavra.** “canhão de plasma” tem 3 palavras, então exige 30 bloquinhos.
+- Cada palavra forma um grupo de 10 mini blocos, marcado por uma coluna de luz e pelo próprio nome flutuando sobre o mapa.
+- Pise perto dos blocos: eles são atraídos para você e contam no HUD.
+- O painel **FORJA EM COLETA** mostra a frase, a contagem e a barra de progresso.
+- Ao juntar o último bloquinho, a arma é materializada com som, anel de energia e atualização dos atributos.
+- Uma nova frase durante a coleta substitui a receita anterior e espalha novos bloquinhos.
+- Morrer, reiniciar ou voltar ao menu limpa a coleta em andamento.
+
+Dica: os grupos ficam distribuídos em anéis pela arena. Use as colunas de luz e os nomes flutuantes para encontrá-los sem parar de se mover.
+
 ## Voz e privacidade
 
 - O reconhecimento usa a Web Speech API do navegador, em `pt-BR`.
@@ -53,20 +67,21 @@ npm run preview
 
 ### Frases que funcionam bem
 
-A forja entende português e combina palavras de elemento, arquétipo e intensidade:
+A forja entende português e combina palavras de elemento, arquétipo e intensidade. A coleta é sempre **10 bloquinhos por palavra**:
 
-- `canhão de plasma supersônico` → canhão de plasma, alto dano e explosão.
-- `metralhadora de fogo` → rifle de fogo, cadência alta.
-- `laser de gelo` → emissor de criogenia, feixe contínuo.
-- `espingarda tóxica` → espingarda de ácido com vários projéteis.
-- `railgun de vazio lendária` → railgun de vazio, precisão e raridade elevada.
-- `pistola comum` → pistola neutra, equilibrada.
+- `canhão de plasma supersônico` → 4 palavras, 40 bloquinhos; canhão de plasma, alto dano e explosão.
+- `metralhadora de fogo` → 3 palavras, 30 bloquinhos; rifle de fogo, cadência alta.
+- `laser de gelo` → 3 palavras, 30 bloquinhos; emissor de criogenia, feixe contínuo.
+- `espingarda tóxica` → 2 palavras, 20 bloquinhos; espingarda de ácido com vários projéteis.
+- `railgun de vazio lendária` → 4 palavras, 40 bloquinhos; railgun de vazio, precisão e raridade elevada.
+- `pistola comum` → 2 palavras, 20 bloquinhos; pistola neutra, equilibrada.
 
 Palavras desconhecidas continuam funcionando: a forja cai em uma pistola de acesso e usa a frase como nome da arma.
 
 ## Recursos
 
 - Arena 3D procedural com obelisco, neon, poeira, estrelas e bloom.
+- Coleta de bloquinhos no mapa: 10 por palavra, com grupos iluminados e nomes flutuantes.
 - Armas geradas proceduralmente em geometria, cor, som e estatísticas.
 - Sem modelos, texturas ou áudio externos: a arena, as armas e os sons são gerados em tempo de execução.
 - Ondas infinitas com sentinelas, brutos e tecelãs.
@@ -74,7 +89,7 @@ Palavras desconhecidas continuam funcionando: a forja cai em uma pistola de aces
 - HUD responsivo, dano flutuante, hit markers, killfeed, combos e screen shake.
 - Áudio Web Audio procedural: tiros, impactos, kills, ondas e ambiência.
 - Pausa, reinício, resumo de partida e retorno ao menu.
-- Modo de teste por URL: `?play=1` inicia sem microfone e `?weapon=canhão%20de%20gelo` já materializa uma arma.
+- Modo de teste por URL: `?play=1` inicia sem microfone e `?weapon=canhão%20de%20plasma` já abre a coleta da arma.
 
 ## Stack
 

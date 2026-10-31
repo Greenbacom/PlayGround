@@ -51,6 +51,19 @@
           </button>
         </header>
 
+        <section id="harvest-hud" class="harvest-hud is-hidden">
+          <div class="harvest-topline">
+            <span class="harvest-kicker"><i class="pulse-dot"></i> <b id="harvest-kicker">FORJA EM COLETA</b></span>
+            <span id="harvest-words" class="harvest-words">1 PALAVRA × 10</span>
+          </div>
+          <strong id="harvest-phrase" class="harvest-phrase">—</strong>
+          <div class="harvest-meter">
+            <div class="harvest-track"><i id="harvest-fill"></i></div>
+            <span class="harvest-count"><b id="harvest-count">0</b> / <span id="harvest-total">0</span> BLOQUINHOS</span>
+          </div>
+          <small id="harvest-hint" class="harvest-hint">Pise nos bloquinhos de cada palavra para juntar a arma.</small>
+        </section>
+
         <div class="hud-side">
           <button id="mic-btn" class="mic-orb is-live" type="button" aria-label="Desligar microfone">
             <span class="mic-ripple"></span>
@@ -100,7 +113,7 @@
           <div class="transcript-wrap" aria-live="polite">
             <div id="transcript" class="transcript">
               <span class="transcript-arrow">›</span>
-              <span id="transcript-text">Diga qualquer coisa para forjar uma arma.</span>
+              <span id="transcript-text">Diga uma arma e colete os bloquinhos no mapa.</span>
             </div>
             <div id="voice-hint" class="voice-hint">MICROFONE ATIVO • FALE UMA ARMA</div>
           </div>
@@ -176,7 +189,7 @@
 
           <aside class="menu-brief">
             <div class="brief-line"><span>01</span><p><b>Fale</b> qualquer frase. O algoritmo extrai elemento, tipo e raridade.</p></div>
-            <div class="brief-line"><span>02</span><p><b>Materialize</b> uma arma procedural única, com assinatura visual e sonora.</p></div>
+            <div class="brief-line"><span>02</span><p><b>Colete</b> 10 bloquinhos do mapa por palavra da frase para juntar a arma.</p></div>
             <div class="brief-line"><span>03</span><p><b>Sobreviva</b> a ondas infinitas de sentinelas na arena.</p></div>
             <div class="brief-tag">TOQUE + GIROSCÓPIO <span>•</span> iOS / ANDROID</div>
           </aside>
@@ -195,7 +208,7 @@
           <button id="type-close" class="modal-close" type="button" aria-label="Fechar">×</button>
           <span class="modal-kicker">ENTRADA MANUAL</span>
           <h2 id="type-title">Diga o nome<br />da sua arma.</h2>
-          <p>Sem microfone? Sem problema. Digite uma frase e a forja cria a arma do mesmo jeito.</p>
+          <p>Sem microfone? Sem problema. Digite uma frase e depois colete 10 bloquinhos por palavra no mapa.</p>
           <form id="type-form">
             <label class="sr-only" for="type-input">Frase da arma</label>
             <input id="type-input" name="phrase" type="text" maxlength="72" autocomplete="off" placeholder="ex: canhão de plasma supersônico" />
