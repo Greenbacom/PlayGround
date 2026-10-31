@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#160c24" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="MORRO VIVO — um FPS de defesa do morro para celular e tablet. Toque, incline e segure o território contra sacis-drones, mulas e o Boitatá." />
+    <title>MORRO VIVO — FPS de defesa do morro</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game" aria-label="Cena do jogo"></canvas>
+
+      <!-- ============ HUD ============ -->
+      <div id="hud" class="hidden" aria-hidden="true">
+        <div class="hud-top">
+          <div class="hud-health">
+            <div class="health-head">
+              <span class="icon-heart" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.3-9.1C1.3 8.4 3.4 5 6.9 5c2 0 3.6 1.1 4.4 2.3l.7 1 .7-1C13.5 6.1 15.1 5 17.1 5c3.5 0 5.6 3.4 4.2 6.9C19.5 16.4 12 21 12 21Z"/></svg>
+              </span>
+              <span class="health-num" id="healthNum">100</span>
+              <span class="health-cap">VIDA</span>
+            </div>
+            <div class="health-bar"><i id="healthFill"></i><b id="healthGhost"></b></div>
+          </div>
+
+          <div class="hud-wave">
+            <span id="waveLabel">ONDA 01</span>
+            <span id="waveSub" class="wave-sub">PREPARE-SE</span>
+          </div>
+
+          <div class="hud-score">
+            <span class="score-num" id="scoreNum">0</span>
+            <span class="score-cap">PONTOS</span>
+          </div>
+
+          <button id="pauseBtn" class="icon-btn pause-btn" aria-label="Pausar">
+            <span></span><span></span>
+          </button>
+        </div>
+
+        <div id="tiltChip" class="tilt-chip hidden">
+          <span class="tilt-dot"></span> INCLINAÇÃO ATIVA
+          <button id="recalBtn" aria-label="Recalibrar inclinação">recalibrar</button>
+        </div>
+
+        <div id="bossBar" class="boss-bar hidden">
+          <div class="boss-name"><span>BOITATÁ</span><small id="bossHp">100%</small></div>
+          <div class="boss-track"><i id="bossFill"></i></div>
+        </div>
+
+        <div id="crosshair" class="crosshair">
+          <i class="ch-dot"></i><i class="ch-t"></i><i class="ch-b"></i><i class="ch-l"></i><i class="ch-r"></i>
+        </div>
+        <div id="hitmarker" class="hitmarker"><i></i><i></i><i></i><i></i></div>
+
+        <div id="combo" class="combo"><span id="comboNum">x2</span><small>COMBO</small></div>
+        <div id="waveBanner" class="wave-banner"></div>
+        <div id="toast" class="toast"></div>
+        <div id="damageVignette" class="damage-vignette"></div>
+        <div id="healVignette" class="heal-vignette"></div>
+        <div id="threats" class="threats" aria-hidden="true"></div>
+
+        <div id="controls" class="controls">
+          <div id="stickZone" class="stick-zone" aria-label="Movimento">
+            <div id="stickBase" class="stick-base hidden">
+              <div class="stick-ring"></div>
+              <div id="stickKnob" class="stick-knob"></div>
+            </div>
+            <span class="stick-hint">ARRASTE PARA ANDAR</span>
+          </div>
+
+          <div id="lookZone" class="look-zone" aria-label="Olhar"></div>
+
+          <button id="dashBtn" class="action-btn dash-btn" aria-label="Impulso">
+            <svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.2H10L9 22l8.6-11.2H12L13 2Z"/></svg>
+            <span>IMPULSO</span>
+            <i class="cooldown" id="dashCd"></i>
+          </button>
+
+          <button id="fireBtn" class="action-btn fire-btn" aria-label="Atirar">
+            <svg class="fire-icon" viewBox="0 0 48 48">
+              <path d="M9 22h30c0 11-6.7 19-15 19S9 33 9 22Z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/>
+              <path d="M12 28h24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity=".55"/>
+              <circle cx="17" cy="17" r="3.1" fill="currentColor"/>
+              <circle cx="25" cy="14" r="3.6" fill="currentColor"/>
+              <circle cx="33" cy="18" r="2.7" fill="currentColor"/>
+              <path d="M24 5v2.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+            </svg>
+            <span class="fire-label">AÇAÍ</span>
+            <i class="heat-ring" id="heatRing"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ============ MENU ============ -->
+      <section id="menu" class="screen menu">
+        <div class="menu-shade"></div>
+        <div class="menu-grain" aria-hidden="true"></div>
+        <div class="menu-stamp" aria-hidden="true">
+          <span>RIO</span><span>2099</span>
+        </div>
+
+        <div class="menu-body">
+          <div class="menu-copy">
+            <div class="kicker">
+              <span class="kicker-line"></span>
+              DEFESA DO MORRO <b>·</b> FPS
+            </div>
+            <h1 class="logo">
+              <span class="logo-top">MORRO</span>
+              <span class="logo-bottom">VIVO<span class="logo-dot">.</span></span>
+            </h1>
+            <p class="tagline">O morro não se entrega.</p>
+            <p class="blurb">
+              Segure o território contra a invasão dos sacis-drones.
+              Açaí na mão, guaraná na veia e o Boitatá no horizonte.
+            </p>
+
+            <div class="menu-actions">
+              <button id="startBtn" class="play-btn" aria-label="Play">
+                <span class="play-ico" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5-11-6.5Z"/></svg>
+                </span>
+                <span class="play-text">JOGAR<small>toque para começar</small></span>
+                <span class="play-arrow" aria-hidden="true">→</span>
+              </button>
+
+              <div class="settings-row">
+                <button id="tiltToggle" class="chip-btn" aria-pressed="false" aria-label="Alternar inclinação">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9.5 18.5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                  <span>Inclinar<small id="tiltState">OFF</small></span>
+                </button>
+                <button id="soundToggle" class="chip-btn" aria-pressed="true" aria-label="Alternar som">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path class="snd-wave" d="M16 8.5c1.6 1.7 1.6 5.3 0 7M18.6 6c3 3.3 3 8.7 0 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                  <span>Som<small id="soundState">ON</small></span>
+                </button>
+                <button id="helpBtn" class="chip-btn" aria-label="Como jogar">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.5v.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="16.8" r="1" fill="currentColor"/></svg>
+                  <span>Como jogar<small>2 min</small></span>
+                </button>
+              </div>
+
+              <p id="tiltHint" class="tilt-hint">A inclinação é opcional — no iPhone o navegador pede permissão.</p>
+            </div>
+
+            <div class="menu-foot">
+              <span id="bestLine">RECORDE <b>0</b></span>
+              <span class="foot-sep">/</span>
+              <span>MELHOR NA HORIZONTAL</span>
+              <span class="foot-sep">/</span>
+              <span class="foot-live"><i></i> SEM DOWNLOAD</span>
+            </div>
+          </div>
+
+          <aside class="menu-poster" aria-hidden="true">
+            <div class="poster-frame">
+              <div class="poster-sun"></div>
+              <div class="poster-hills h1"></div>
+              <div class="poster-hills h2"></div>
+              <div class="poster-hills h3"></div>
+              <div class="poster-title">DEFENDA<br />O MORRO</div>
+              <div class="poster-sub">ACESSO RESTRITO · COMUNIDADE</div>
+              <div class="poster-tape"></div>
+            </div>
+            <div class="poster-caption">cartaz colado por alguém da quebrada</div>
+          </aside>
+        </div>
+
+        <div class="menu-marquee" aria-hidden="true">
+          <div class="marquee-track">
+            <span>O MORRO NÃO SE ENTREGA</span><i>✷</i><span>DEFENDA O TERRITÓRIO</span><i>✷</i><span>AÇAÍ NA MÃO</span><i>✷</i><span>BOITATÁ À VISTA</span><i>✷</i>
+            <span>O MORRO NÃO SE ENTREGA</span><i>✷</i><span>DEFENDA O TERRITÓRIO</span><i>✷</i><span>AÇAÍ NA MÃO</span><i>✷</i><span>BOITATÁ À VISTA</span><i>✷</i>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ PAUSE ============ -->
+      <section id="pause" class="screen overlay hidden" aria-hidden="true">
+        <div class="panel">
+          <div class="panel-kicker">INTERVALO</div>
+          <h2>PAUSA</h2>
+          <p class="panel-sub">O morro espera por você.</p>
+          <div class="panel-stats">
+            <div><b id="pauseWave">01</b><span>ONDA</span></div>
+            <div><b id="pauseScore">0</b><span>PONTOS</span></div>
+            <div><b id="pauseKills">0</b><span>ABATES</span></div>
+          </div>
+          <button id="resumeBtn" class="play-btn compact" aria-label="Continuar">
+            <span class="play-ico"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5-11-6.5Z"/></svg></span>
+            <span class="play-text">CONTINUAR</span>
+            <span class="play-arrow">→</span>
+          </button>
+          <div class="panel-grid">
+            <button id="pauseTiltBtn" class="ghost-btn">Inclinação: <b>OFF</b></button>
+            <button id="pauseSoundBtn" class="ghost-btn">Som: <b>ON</b></button>
+            <button id="restartBtn" class="ghost-btn">Reiniciar</button>
+            <button id="quitBtn" class="ghost-btn danger">Sair</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ GAME OVER ============ -->
+      <section id="gameover" class="screen overlay hidden" aria-hidden="true">
+        <div class="panel gameover-panel">
+          <div class="panel-kicker">FIM DA LINHA</div>
+          <h2>VOCÊ<br /><em>TOMBOU.</em></h2>
+          <p class="panel-sub" id="goSub">Mas o morro lembra de quem lutou.</p>
+          <div class="panel-stats big">
+            <div><b id="goWave">01</b><span>ONDA</span></div>
+            <div><b id="goScore">0</b><span>PONTOS</span></div>
+            <div><b id="goKills">0</b><span>ABATES</span></div>
+          </div>
+          <p class="record-line" id="recordLine">RECORDE PESSOAL: 0</p>
+          <button id="againBtn" class="play-btn compact" aria-label="Play again">
+            <span class="play-ico"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5-11-6.5Z"/></svg></span>
+            <span class="play-text">DE NOVO</span>
+            <span class="play-arrow">→</span>
+          </button>
+          <button id="menuBtn" class="ghost-btn wide">Voltar ao menu</button>
+        </div>
+      </section>
+
+      <!-- ============ HELP ============ -->
+      <section id="help" class="screen overlay hidden" aria-hidden="true">
+        <div class="panel help-panel">
+          <button class="close-x" id="helpClose" aria-label="Fechar">✕</button>
+          <div class="panel-kicker">MANUAL DA QUEBRADA</div>
+          <h2>COMO JOGAR</h2>
+          <div class="help-grid">
+            <div class="help-item">
+              <div class="help-ico">◎</div>
+              <h3>MIRAR</h3>
+              <p>Arraste o dedo na metade direita da tela. Ou ative a inclinação e mire virando o aparelho.</p>
+            </div>
+            <div class="help-item">
+              <div class="help-ico">✛</div>
+              <h3>ANDAR</h3>
+              <p>Arraste na metade esquerda para abrir o direcional flutuante. No teclado, use WASD.</p>
+            </div>
+            <div class="help-item">
+              <div class="help-ico">✦</div>
+              <h3>ATIRAR</h3>
+              <p>Segure o botão AÇAÍ. O cano esquenta — solte para esfriar antes de travar.</p>
+            </div>
+            <div class="help-item">
+              <div class="help-ico">⚡</div>
+              <h3>IMPULSO</h3>
+              <p>Um drible rápido e invulnerável. Use para escapar do fogo e das investidas da mula.</p>
+            </div>
+            <div class="help-item">
+              <div class="help-ico">◆</div>
+              <h3>COLETAR</h3>
+              <p>Guaraná cura. Açaí turbina o cano por alguns segundos. Os dois caem dos inimigos.</p>
+            </div>
+            <div class="help-item">
+              <div class="help-ico">♨</div>
+              <h3>SOBREVIVER</h3>
+              <p>Ondas crescentes, combo por abates rápidos e um Boitatá a cada cinco ondas.</p>
+            </div>
+          </div>
+          <div class="help-tilt">
+            <b>Inclinação no iPhone:</b> toque em “Inclinar” e aceite o pedido de permissão de movimento. Se negar, é só jogar no toque.
+          </div>
+          <button class="play-btn compact" id="helpPlay" aria-label="Play">
+            <span class="play-ico"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5-11-6.5Z"/></svg></span>
+            <span class="play-text">JOGAR</span>
+            <span class="play-arrow">→</span>
+          </button>
+        </div>
+      </section>
+
+      <div id="rotateToast" class="rotate-toast hidden">
+        <span>↻</span> Melhor na horizontal — mas dá para jogar assim.
+        <button id="rotateClose" aria-label="Dispensar">✕</button>
+      </div>
+
+      <div id="boot" class="boot">
+        <div class="boot-logo">MORRO VIVO</div>
+        <div class="boot-bar"><i></i></div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
