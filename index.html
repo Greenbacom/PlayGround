@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#050711" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="VOX ARSENAL — um FPS onde tudo o que você fala no microfone vira uma arma." />
+  <title>VOX ARSENAL — Fale. Forje. Destrua.</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23050814'/%3E%3Cpath d='M18 18l14 29 14-29h-7l-7 17-7-17z' fill='%236df6ff'/%3E%3Ccircle cx='32' cy='49' r='4' fill='%23ff49d4'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three.module.js",
+        "three/addons/": "./vendor/addons/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <canvas id="game-canvas" aria-label="Arena 3D do jogo"></canvas>
+    <div class="scene-tint" aria-hidden="true"></div>
+    <div id="scanlines" aria-hidden="true"></div>
+    <div id="vignette" aria-hidden="true"></div>
+    <div id="damage-flash" aria-hidden="true"></div>
+    <div id="heal-flash" aria-hidden="true"></div>
+    <div id="damage-layer" aria-hidden="true"></div>
+
+    <div id="hud" class="hidden">
+      <header class="hud-top">
+        <div class="hud-brand" aria-label="VOX Arsenal">
+          <span class="brand-vox">VOX</span><span class="brand-arsenal">ARSENAL</span>
+          <i class="brand-dot"></i>
+        </div>
+
+        <div class="hud-center">
+          <div class="wave-chip">
+            <span class="micro-label">ONDA</span>
+            <strong id="wave-number">01</strong>
+          </div>
+          <div class="score-chip">
+            <span class="micro-label">PONTOS</span>
+            <strong id="score-value">000000</strong>
+            <em id="combo-value">x1</em>
+          </div>
+        </div>
+
+        <div class="hud-actions">
+          <div class="radar-wrap">
+            <canvas id="radar" width="168" height="168" aria-label="Radar de inimigos"></canvas>
+            <span class="radar-label">RADAR</span>
+          </div>
+          <button id="motion-btn" class="icon-btn" type="button" aria-label="Ativar inclinação" title="Inclinação">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm0 3v12h10V6H7Zm3 14h4" /></svg>
+          </button>
+          <button id="sound-btn" class="icon-btn" type="button" aria-label="Silenciar som" title="Som">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Zm12.5-2.5a7 7 0 0 1 0 11M19 4a11 11 0 0 1 0 16" /></svg>
+          </button>
+          <button id="pause-btn" class="icon-btn" type="button" aria-label="Pausar jogo" title="Pausa">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z" /></svg>
+          </button>
+        </div>
+      </header>
+
+      <button id="voice-pill" class="voice-pill" type="button" aria-label="Forjar arma por voz">
+        <span class="voice-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+        <span id="voice-label">TOQUE PARA FORJAR</span>
+        <span class="voice-key">V</span>
+      </button>
+
+      <div id="reticle" class="reticle" aria-hidden="true">
+        <i class="ret-dot"></i><i class="ret-t"></i><i class="ret-r"></i><i class="ret-b"></i><i class="ret-l"></i>
+      </div>
+      <div id="hitmarker" class="hitmarker" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+      <div id="boss-panel" class="boss-panel hidden">
+        <div class="boss-title"><span>AMEAÇA CRÍTICA</span><strong id="boss-name">O SILÊNCIO</strong></div>
+        <div class="boss-bar"><i id="boss-fill"></i></div>
+      </div>
+
+      <div id="wave-banner" class="wave-banner hidden">
+        <span id="banner-kicker">PROTOCOLO DE COMBATE</span>
+        <strong id="banner-main">ONDA 01</strong>
+        <em id="banner-sub">SOBREVIVA AO SILÊNCIO</em>
+      </div>
+
+      <section class="vitals-card" aria-label="Saúde e escudo">
+        <div class="vitals-head">
+          <span class="operator-tag">OPERADOR 07</span>
+          <span id="shield-value">50</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-icon">+</span>
+          <div class="bar-track health-track"><i id="health-fill"></i><b id="health-ghost"></b></div>
+          <strong id="health-value">100</strong>
+        </div>
+        <div class="bar-row shield-row">
+          <span class="bar-icon">◇</span>
+          <div class="bar-track shield-track"><i id="shield-fill"></i></div>
+          <strong id="shield-label">ESCUDO</strong>
+        </div>
+        <div id="dash-state" class="dash-state"><span>IMPULSO</span><i><b id="dash-fill"></b></i></div>
+      </section>
+
+      <section id="weapon-panel" class="weapon-panel" aria-label="Arma equipada">
+        <div class="weapon-meta">
+          <span id="weapon-rarity" class="rarity-tag">PROTÓTIPO</span>
+          <h2 id="weapon-name">SUSSURRO</h2>
+          <p id="weapon-sub">PULSO DE INICIAÇÃO</p>
+        </div>
+        <div class="ammo-block">
+          <strong id="ammo-current">12</strong>
+          <span class="ammo-divider">/</span>
+          <span id="ammo-max">12</span>
+          <em id="reload-label">MUNIÇÃO</em>
+        </div>
+      </section>
+
+      <div id="weapon-slots" class="weapon-slots" role="list" aria-label="Arsenal"></div>
+
+      <div id="kill-feed" class="kill-feed" aria-live="polite"></div>
+
+      <div id="touch-ui" class="touch-ui">
+        <div id="move-zone" class="move-zone">
+          <div id="joystick-base" class="joystick-base">
+            <span class="joystick-ticks"></span>
+            <div id="joystick-knob" class="joystick-knob"></div>
+          </div>
+          <span class="touch-caption">MOVER</span>
+        </div>
+        <div id="look-zone" class="look-zone"><span class="look-hint">ARRASTE PARA MIRAR</span></div>
+        <button id="fire-btn" class="fire-btn" type="button" aria-label="Atirar">
+          <span class="fire-ring"></span>
+          <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="6"/><path d="M24 4v9M24 35v9M4 24h9M35 24h9"/></svg>
+          <em>FOGO</em>
+        </button>
+        <button id="dash-btn" class="round-btn dash-btn" type="button" aria-label="Impulso">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 7-7v4h9v6h-9v4l-7-7Z"/></svg>
+        </button>
+        <button id="reload-btn" class="round-btn reload-btn" type="button" aria-label="Recarregar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3M20 4v7h-7"/></svg>
+        </button>
+        <button id="forge-mobile" class="round-btn forge-btn" type="button" aria-label="Forjar arma por voz">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="12" rx="4"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></svg>
+        </button>
+      </div>
+
+      <div id="toast-container" class="toast-container" aria-live="polite"></div>
+    </div>
+
+    <section id="start-screen" class="start-screen">
+      <div class="start-grid" aria-hidden="true"></div>
+      <div class="start-copy">
+        <div class="eyebrow"><i></i> PROTOCOLO DE COMBATE VOCAL <span>// ONLINE</span></div>
+        <h1 class="hero-title" aria-label="VOX Arsenal">
+          <span class="hero-vox">VOX</span>
+          <span class="hero-arsenal">ARSENAL</span>
+        </h1>
+        <p class="hero-tagline">FALE. FORJE. DESTRUA.</p>
+        <p class="hero-lede">Seu microfone é a arma. Cada palavra dita se transforma em um artefato de combate único — e o silêncio é o inimigo.</p>
+
+        <div class="start-actions">
+          <button id="start-btn" class="primary-btn" type="button" aria-label="Start">
+            <span class="btn-glow"></span>
+            <span class="btn-icon">▶</span>
+            <span class="btn-text"><strong>INICIAR MISSÃO</strong><em>ENTRAR NA ARENA</em></span>
+          </button>
+          <button id="mic-preflight" class="secondary-btn" type="button">
+            <span class="mic-dot"></span>
+            <span id="mic-preflight-label">ATIVAR MICROFONE</span>
+          </button>
+        </div>
+
+        <div class="feature-strip">
+          <div class="feature"><span class="feature-icon">⌁</span><strong>ARMA VOCAL</strong><em>Fale e veja a arma nascer</em></div>
+          <div class="feature"><span class="feature-icon">◉</span><strong>TOQUE TOTAL</strong><em>Joystick, mira e impulso</em></div>
+          <div class="feature"><span class="feature-icon">◈</span><strong>GIROSCÓPIO</strong><em>Inclinação opcional</em></div>
+        </div>
+
+        <div class="start-footer">
+          <div class="control-hint desktop-hint"><kbd>WASD</kbd> MOVER <span>·</span> <kbd>MOUSE</kbd> MIRAR <span>·</span> <kbd>CLIQUE</kbd> ATIRAR <span>·</span> <kbd>V</kbd> FORJAR</div>
+          <div class="control-hint mobile-hint">JOYSTICK MOVER <span>·</span> ARRASTE MIRAR <span>·</span> TOQUE FOGO</div>
+          <div class="build-tag">BUILD 01.31 // ÁUDIO SINTETIZADO // WEBGL</div>
+        </div>
+      </div>
+
+      <aside class="start-side" aria-hidden="true">
+        <div class="specimen-ring ring-a"></div>
+        <div class="specimen-ring ring-b"></div>
+        <div class="specimen-ring ring-c"></div>
+        <div class="specimen-label top">ESPÉCIME 00</div>
+        <div class="specimen-label bottom">PULSO DE INICIAÇÃO</div>
+        <div class="specimen-scan"></div>
+      </aside>
+
+      <div class="start-corner top-left"></div>
+      <div class="start-corner top-right"></div>
+      <div class="start-corner bottom-left"></div>
+      <div class="start-corner bottom-right"></div>
+      <div class="start-version">VOX//A <span>•</span> V.01 <span>•</span> SINAL ESTÁVEL</div>
+    </section>
+
+    <section id="voice-overlay" class="voice-overlay hidden" aria-label="Forja vocal">
+      <div class="voice-backdrop"></div>
+      <div class="voice-panel">
+        <button id="voice-close" class="close-btn" type="button" aria-label="Fechar forja">×</button>
+        <div class="eyebrow center"><i></i> FORJA VOCAL <span>// CANAL ABERTO</span></div>
+        <h2>DIGA O NOME DA SUA ARMA</h2>
+        <p class="voice-help">Uma palavra, uma frase, um desejo. O sistema interpreta o significado e materializa o artefato.</p>
+
+        <div id="voice-orb" class="voice-orb">
+          <div class="orb-aura"></div>
+          <div class="orb-ring ring-1"></div>
+          <div class="orb-ring ring-2"></div>
+          <div class="orb-ring ring-3"></div>
+          <div class="orb-core">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="12" rx="4"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></svg>
+          </div>
+          <canvas id="waveform" width="520" height="160"></canvas>
+        </div>
+
+        <div id="voice-status" class="voice-status">TOQUE EM FALAR E DESCREVA SUA ARMA</div>
+        <div id="voice-transcript" class="voice-transcript"><span class="transcript-ghost">“lança de gelo”</span></div>
+
+        <div class="voice-actions">
+          <button id="voice-mic" class="voice-mic-btn" type="button">
+            <span class="mic-pulse"></span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="12" rx="4"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/></svg>
+            <span id="voice-mic-label">FALAR</span>
+          </button>
+          <button id="voice-cancel" class="text-btn" type="button">CANCELAR</button>
+        </div>
+
+        <form id="voice-type-form" class="voice-type-form">
+          <input id="voice-type" type="text" maxlength="48" autocomplete="off" placeholder="ou digite o nome da arma…" aria-label="Nome da arma" />
+          <button type="submit">FORJAR</button>
+        </form>
+
+        <div class="suggestion-row">
+          <span>EXPERIMENTE:</span>
+          <button type="button" data-suggestion="rifle de plasma">rifle de plasma</button>
+          <button type="button" data-suggestion="tempestade de gelo">tempestade de gelo</button>
+          <button type="button" data-suggestion="canhão de fogo">canhão de fogo</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="weapon-reveal" class="weapon-reveal hidden" aria-live="assertive">
+      <div class="reveal-flare"></div>
+      <div class="reveal-lines" aria-hidden="true"></div>
+      <div class="reveal-card">
+        <span id="reveal-rarity" class="reveal-rarity">LENDÁRIA</span>
+        <div id="reveal-glyph" class="reveal-glyph">✦</div>
+        <h2 id="reveal-name">LANÇA DE GELO</h2>
+        <p id="reveal-sub">RIFLE CRIOGÊNICO // CONGELANTE</p>
+        <div class="reveal-stats">
+          <div><span>DANO</span><i><b id="stat-damage"></b></i><em id="stat-damage-num">0</em></div>
+          <div><span>CADÊNCIA</span><i><b id="stat-rate"></b></i><em id="stat-rate-num">0</em></div>
+          <div><span>ALCANCE</span><i><b id="stat-range"></b></i><em id="stat-range-num">0</em></div>
+        </div>
+        <div class="reveal-equip">ARMA EQUIPADA <span>•</span> PRONTA PARA DISPARO</div>
+      </div>
+    </section>
+
+    <section id="pause-screen" class="modal-screen hidden" aria-label="Jogo pausado">
+      <div class="modal-card pause-card">
+        <div class="eyebrow center"><i></i> SISTEMA SUSPENSO</div>
+        <h2>PAUSA</h2>
+        <p>O silêncio espera. Reorganize seu arsenal.</p>
+        <div class="pause-stats">
+          <div><span>ONDA</span><strong id="pause-wave">01</strong></div>
+          <div><span>PONTOS</span><strong id="pause-score">0</strong></div>
+          <div><span>ABATES</span><strong id="pause-kills">0</strong></div>
+        </div>
+        <div class="pause-actions">
+          <button id="resume-btn" class="primary-btn compact" type="button"><span class="btn-icon">▶</span><span class="btn-text"><strong>CONTINUAR</strong><em>VOLTAR À ARENA</em></span></button>
+          <button id="pause-forge-btn" class="secondary-btn wide" type="button">FORJAR NOVA ARMA</button>
+          <button id="pause-restart-btn" class="text-btn" type="button">REINICIAR MISSÃO</button>
+          <button id="pause-menu-btn" class="text-btn" type="button">VOLTAR AO INÍCIO</button>
+        </div>
+        <div class="settings-row">
+          <button id="pause-sound" class="toggle-pill" type="button">SOM: ON</button>
+          <button id="pause-motion" class="toggle-pill" type="button">INCLINAÇÃO: OFF</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="gameover-screen" class="modal-screen hidden" aria-label="Fim de jogo">
+      <div class="modal-card gameover-card">
+        <div class="eyebrow center danger"><i></i> SINAL PERDIDO</div>
+        <h2>VOCÊ CAIU</h2>
+        <p id="gameover-message">O silêncio venceu esta rodada. Sua voz ainda pode mudar isso.</p>
+        <div class="gameover-grid">
+          <div class="big-stat"><span>PONTUAÇÃO</span><strong id="final-score">0</strong></div>
+          <div><span>ONDA</span><strong id="final-wave">01</strong></div>
+          <div><span>ABATES</span><strong id="final-kills">0</strong></div>
+          <div><span>PRECISÃO</span><strong id="final-accuracy">0%</strong></div>
+          <div><span>MELHOR COMBO</span><strong id="final-combo">x1</strong></div>
+        </div>
+        <div class="gameover-actions">
+          <button id="retry-btn" class="primary-btn compact" type="button"><span class="btn-icon">↻</span><span class="btn-text"><strong>TENTAR NOVAMENTE</strong><em>REABRIR O CANAL</em></span></button>
+          <button id="gameover-forge-btn" class="secondary-btn wide" type="button">FORJAR ARMA ANTES DE VOLTAR</button>
+          <button id="menu-btn" class="text-btn" type="button">VOLTAR AO INÍCIO</button>
+        </div>
+        <div class="best-line">RECORDE PESSOAL <strong id="best-score">0</strong></div>
+      </div>
+    </section>
+
+    <div id="rotate-hint" class="rotate-hint">GIRE O DISPOSITIVO PARA UMA VISÃO MAIS AMPLA</div>
+    <div id="unsupported" class="unsupported hidden">
+      <strong>WEBGL INDISPONÍVEL</strong>
+      <span>Este dispositivo não conseguiu abrir a arena. Tente atualizar o navegador.</span>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
