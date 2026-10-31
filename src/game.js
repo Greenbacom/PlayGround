@@ -819,6 +819,37 @@ export class Game {
     this.viewRig.visible = false;
   }
 
+  previewWeapon(weapon) {
+    if (!weapon || !this.menuRig) return;
+    if (this.menuShowcase?.id === weapon.id) {
+      this.menuShowcase = weapon;
+      return;
+    }
+
+    if (this.menuWeaponModel) {
+      disposeWeaponModel(this.menuWeaponModel);
+      this.menuWeaponModel = null;
+    }
+
+    const model = buildWeaponModel(weapon);
+    model.group.scale.setScalar(1.92);
+    model.group.position.set(0, 0, 0);
+    model.group.rotation.y = -1.12;
+    this.menuRig.add(model.group);
+    this.menuWeaponModel = model;
+    this.menuShowcase = weapon;
+
+    const color = new THREE.Color(weapon.element.color);
+    if (this.menuGlow) this.menuGlow.material.color.copy(color);
+    if (this.menuKeyLight) {
+      const keyColor = color.clone().lerp(new THREE.Color(0xffffff), 0.55);
+      this.menuKeyLight.color.copy(keyColor);
+    }
+    if (this.menuRings) {
+      for (const ring of this.menuRings) ring.material.color.copy(color);
+    }
+  }
+
   setMenuCamera(instant = false) {
     const angle = 0.68 + Math.sin(this.menuTime * 0.045) * 0.11;
     const radius = instant ? 16.2 : 16.2;
@@ -831,7 +862,7 @@ export class Game {
      Run lifecycle
      ============================================================ */
 
-  startRun() {
+  startRun(starterWeapon = null) {
     this.clearRunEntities();
     this.mode = 'playing';
     this.score = 0;
@@ -861,7 +892,8 @@ export class Game {
     this.camera.updateProjectionMatrix();
     this.camera.rotation.set(0, 0, 0);
     this.camera.position.set(0, 1.65, 10);
-    this.setWeapon(createWeaponFromPhrase(this.weapon?.phrase || 'pistola de acesso'), false);
+    const starter = starterWeapon || this.weapon || createWeaponFromPhrase('pistola de acesso');
+    this.setWeapon(starter, false);
     this.emitHealth(true);
     this.emitScore();
     this.emitEnemyCount();

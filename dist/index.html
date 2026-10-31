@@ -12,8 +12,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="./assets/index-CP6Ku8l-.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BEA01D6c.css">
+    <script type="module" crossorigin src="./assets/index-DX28qYTD.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DqGx9qZc.css">
   </head>
   <body>
     <div id="app">
@@ -161,6 +161,13 @@
             <p class="lede">Grite um canhão de plasma. Sussurre uma metralhadora de gelo. Sua voz define o dano, a cadência e a forma da próxima arma.</p>
 
             <div class="menu-actions">
+              <button id="forge-start-btn" class="forge-entry" type="button">
+                <span class="forge-entry-mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/></svg>
+                </span>
+                <span class="btn-copy"><strong>CRIAR MINHA ARMA</strong><small id="forge-entry-status">escreva ou fale o nome • prévia 3D • equipe antes de jogar</small></span>
+                <span class="btn-arrow">↗</span>
+              </button>
               <button id="start-btn" class="primary-btn" type="button">
                 <span class="btn-icon">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 1 0-7 0v5.5A3.5 3.5 0 0 0 12 15Zm6-3.5a6 6 0 0 1-12 0M12 17.5V21"/></svg>
@@ -170,6 +177,8 @@
               </button>
               <button id="silent-btn" class="text-btn" type="button">Jogar digitando <span>→</span></button>
             </div>
+
+            <p id="menu-weapon-status" class="menu-weapon-status">ARMA EQUIPADA <span>//</span> <b>PISTOLA DE ACESSO</b></p>
 
             <div class="menu-options">
               <button id="tilt-toggle" class="option-toggle" type="button" role="switch" aria-checked="false">
@@ -221,6 +230,107 @@
             <button type="button" data-phrase="laser de gelo">laser de gelo</button>
             <button type="button" data-phrase="espingarda tóxica">espingarda tóxica</button>
           </div>
+        </div>
+      </section>
+
+      <!-- ============ FORJA INICIAL ============ -->
+      <section id="forge-modal" class="modal forge-modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="forge-title">
+        <div class="modal-card forge-card">
+          <button id="forge-dismiss" class="modal-close" type="button" aria-label="Fechar">×</button>
+
+          <header class="forge-head">
+            <div>
+              <span class="modal-kicker">FORJA INICIAL // DESIGN DE ARMA</span>
+              <h2 id="forge-title">Crie sua<br />arma de entrada.</h2>
+              <p>Escreva ou dite o nome. A forja lê elemento, tipo e raridade, mostra como a arma se comporta e deixa você entrar na arena com ela equipada.</p>
+            </div>
+            <div class="forge-steps" aria-hidden="true">
+              <span><b>01</b> escreva ou fale</span>
+              <span><b>02</b> veja a prévia</span>
+              <span><b>03</b> equipe e jogue</span>
+            </div>
+          </header>
+
+          <div class="forge-body">
+            <div class="forge-controls">
+              <form id="forge-form" class="forge-form">
+                <label for="forge-input">NOME DA ARMA</label>
+                <div class="forge-input-row">
+                  <input id="forge-input" name="phrase" type="text" maxlength="72" autocomplete="off" placeholder="ex: canhão de plasma supersônico" />
+                  <button id="forge-dictate" class="forge-dictate" type="button" aria-pressed="false">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 1 0-7 0v5.5A3.5 3.5 0 0 0 12 15Zm6-3.5a6 6 0 0 1-12 0M12 17.5V21m-3 0h6"/></svg>
+                    <span id="forge-dictate-label">DITAR</span>
+                  </button>
+                </div>
+
+                <div class="forge-voice-row">
+                  <button id="forge-permission" class="forge-permission" type="button">
+                    <span class="forge-perm-dot" aria-hidden="true"></span>
+                    <span id="forge-permission-label">LIBERAR MICROFONE</span>
+                  </button>
+                  <span id="forge-voice-status" class="forge-voice-status" role="status">Permissão de voz ainda não solicitada.</span>
+                </div>
+
+                <div class="forge-suggestions">
+                  <button type="button" data-forge-phrase="canhão de plasma supersônico">canhão de plasma supersônico</button>
+                  <button type="button" data-forge-phrase="metralhadora de fogo">metralhadora de fogo</button>
+                  <button type="button" data-forge-phrase="laser de gelo">laser de gelo</button>
+                  <button type="button" data-forge-phrase="espingarda tóxica">espingarda tóxica</button>
+                  <button type="button" data-forge-phrase="railgun de vazio lendária">railgun de vazio lendária</button>
+                </div>
+              </form>
+
+              <section class="forge-memory" aria-label="Memória de armas">
+                <div class="forge-memory-head">
+                  <span class="forge-memory-title">MEMÓRIA DE ARMAS <b id="forge-memory-count">0</b></span>
+                  <span class="forge-memory-hint">salvas neste navegador</span>
+                </div>
+                <div id="forge-memory-list" class="forge-memory-list"></div>
+                <p id="forge-memory-empty" class="forge-memory-empty">Nenhuma arma salva ainda. Equipe a primeira para começar sua memória.</p>
+              </section>
+            </div>
+
+            <aside class="forge-preview" aria-label="Prévia da arma">
+              <div class="forge-preview-head">
+                <span class="forge-preview-label">PRÉVIA DE COMBATE</span>
+                <span id="forge-preview-rarity" class="rarity">COMUM</span>
+              </div>
+              <h3 id="forge-preview-name">CANHÃO DE PLASMA ANCESTRAL</h3>
+              <span id="forge-preview-kind" class="forge-preview-kind">CANHÃO DE PLASMA</span>
+              <p id="forge-preview-desc" class="forge-preview-desc">Projétil explosivo com dano em área.</p>
+
+              <div class="forge-preview-meta">
+                <div><span>ELEMENTO</span><b id="forge-preview-element">PLASMA</b></div>
+                <div><span>MODO</span><b id="forge-preview-mode">EXPLOSIVO</b></div>
+              </div>
+
+              <div class="forge-preview-stats">
+                <div class="stat-row">
+                  <span>DANO</span>
+                  <div class="stat-track"><i id="forge-stat-damage"></i></div>
+                  <b id="forge-stat-damage-num">--</b>
+                </div>
+                <div class="stat-row">
+                  <span>CADÊNCIA</span>
+                  <div class="stat-track"><i id="forge-stat-rate"></i></div>
+                  <b id="forge-stat-rate-num">--</b>
+                </div>
+              </div>
+
+              <p id="forge-preview-note" class="forge-preview-note">Digite ou dite para atualizar a prévia em tempo real. A arma aparece no showroom 3D ao fundo.</p>
+            </aside>
+          </div>
+
+          <footer class="forge-actions">
+            <button id="forge-play" class="primary-btn compact" type="button">
+              <span class="btn-copy"><strong>FORJAR E JOGAR</strong><small>entra na arena com esta arma equipada</small></span>
+              <span class="btn-arrow">↗</span>
+            </button>
+            <div class="forge-secondary-actions">
+              <button id="forge-equip" class="text-btn" type="button">Só equipar <span>→</span></button>
+              <button id="forge-close" class="text-btn" type="button">Voltar ao início</button>
+            </div>
+          </footer>
         </div>
       </section>
 

@@ -1,6 +1,7 @@
 import './style.css';
 import { Game } from './game.js';
 import { AudioEngine } from './audio.js';
+import { createWeaponFromPhrase, describeWeapon } from './weapons.js';
 
 /* ============================================================
    DOM
@@ -62,6 +63,37 @@ const els = {
   tiltBadge: $('tilt-badge'),
   desktopHint: $('desktop-hint'),
   menuBtn: $('menu-btn'),
+  forgeStartBtn: $('forge-start-btn'),
+  forgeEntryStatus: $('forge-entry-status'),
+  menuWeaponStatus: $('menu-weapon-status'),
+  forgeModal: $('forge-modal'),
+  forgeCard: document.querySelector('.forge-card'),
+  forgeForm: $('forge-form'),
+  forgeInput: $('forge-input'),
+  forgeDismiss: $('forge-dismiss'),
+  forgeClose: $('forge-close'),
+  forgePlay: $('forge-play'),
+  forgeEquip: $('forge-equip'),
+  forgeDictate: $('forge-dictate'),
+  forgeDictateLabel: $('forge-dictate-label'),
+  forgePermission: $('forge-permission'),
+  forgePermissionLabel: $('forge-permission-label'),
+  forgeVoiceStatus: $('forge-voice-status'),
+  forgePreview: document.querySelector('.forge-preview'),
+  forgePreviewRarity: $('forge-preview-rarity'),
+  forgePreviewName: $('forge-preview-name'),
+  forgePreviewKind: $('forge-preview-kind'),
+  forgePreviewDesc: $('forge-preview-desc'),
+  forgePreviewElement: $('forge-preview-element'),
+  forgePreviewMode: $('forge-preview-mode'),
+  forgeStatDamage: $('forge-stat-damage'),
+  forgeStatDamageNum: $('forge-stat-damage-num'),
+  forgeStatRate: $('forge-stat-rate'),
+  forgeStatRateNum: $('forge-stat-rate-num'),
+  forgePreviewNote: $('forge-preview-note'),
+  forgeMemoryList: $('forge-memory-list'),
+  forgeMemoryCount: $('forge-memory-count'),
+  forgeMemoryEmpty: $('forge-memory-empty'),
   typeModal: $('type-modal'),
   typeForm: $('type-form'),
   typeInput: $('type-input'),
@@ -111,6 +143,28 @@ function writePref(key, value) {
   }
 }
 
+const WEAPON_MEMORY_KEY = 'vox_weapon_memory';
+const MENU_WEAPON_KEY = 'vox_menu_weapon';
+const DEFAULT_SHOWCASE_PHRASE = 'canhão de plasma ancestral';
+const FALLBACK_WEAPON_PHRASE = 'pistola de acesso';
+
+function readStringPref(key, fallback = '') {
+  try {
+    const value = window.localStorage.getItem(key);
+    return value === null ? fallback : value;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStringPref(key, value) {
+  try {
+    window.localStorage.setItem(key, String(value));
+  } catch {
+    /* Storage is optional; the forge still works for this session. */
+  }
+}
+
 const state = {
   game: null,
   preferredVoice: readPref('vox_voice', true),
@@ -128,6 +182,16 @@ const state = {
   menuAnimationTimer: null,
   damageFlashTimer: null,
   scorePopTimer: null,
+  forgePreviewTimer: null,
+  menuWeapon: null,
+  forgeDraft: null,
+  forgeBaseWeapon: null,
+  forgeOpen: false,
+  forgeVoiceError: false,
+  forgeRecognition: null,
+  forgeRecognitionRunning: false,
+  forgeMicPermission: 'unknown',
+  weaponMemory: [],
   soundOn: readPref('vox_sound', true),
   tiltOn: readPref('vox_tilt', false),
   tiltActive: false,
@@ -257,6 +321,455 @@ function pulseHaptic(duration = 12) {
 }
 
 /* ============================================================
+   Start-screen weapon designer
+   ============================================================ */
+
+function readWeaponMemory() {
+  try {
+    const raw = window.localStorage.getItem(WEAPON_MEMORY_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item) => item && typeof item.phrase === 'string' && item.phrase.trim())
+      .slice(0, 6);
+  } catch {
+    return [];
+  }
+}
+
+function writeWeaponMemory(list) {
+  try {
+    window.localStorage.setItem(WEAPON_MEMORY_KEY, JSON.stringify(list.slice(0, 6)));
+  } catch {
+    /* Storage can be unavailable in private mode. */
+  }
+}
+
+function rememberWeapon(weapon) {
+  if (!weapon?.phrase) return;
+  const key = weapon.normalized || weapon.phrase.trim().toLowerCase();
+  const previous = state.weaponMemory.find((item) => {
+    const itemKey = item.normalized || String(item.phrase || '').trim().toLowerCase();
+    return itemKey === key;
+  });
+  state.weaponMemory = [
+    {
+      phrase: weapon.phrase,
+      normalized: key,
+      kind: weapon.kind,
+      accent: weapon.accent,
+      createdAt: previous?.createdAt || Date.now(),
+    },
+    ...state.weaponMemory.filter((item) => {
+      const itemKey = item.normalized || String(item.phrase || '').trim().toLowerCase();
+      return itemKey !== key;
+    }),
+  ].slice(0, 6);
+  writeWeaponMemory(state.weaponMemory);
+  renderWeaponMemory();
+}
+
+function renderWeaponMemory() {
+  if (!els.forgeMemoryList) return;
+  els.forgeMemoryCount.textContent = String(state.weaponMemory.length);
+  els.forgeMemoryEmpty.classList.toggle('is-hidden', state.weaponMemory.length > 0);
+  els.forgeMemoryList.replaceChildren();
+
+  for (const item of state.weaponMemory) {
+    const weapon = createWeaponFromPhrase(item.phrase);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'forge-memory-item';
+    button.style.setProperty('--item-accent', weapon.accent);
+
+    const title = document.createElement('b');
+    title.textContent = weapon.title;
+    const subtitle = document.createElement('small');
+    subtitle.textContent = `${weapon.kind} • ${weapon.rarity.label}`;
+    const element = document.createElement('em');
+    element.textContent = weapon.element.label;
+
+    button.append(title, subtitle, element);
+    button.addEventListener('click', () => {
+      els.forgeInput.value = weapon.title;
+      updateForgeDraft(weapon.title);
+      if (!coarsePointer) els.forgeInput.focus({ preventScroll: true });
+    });
+    els.forgeMemoryList.appendChild(button);
+  }
+}
+
+function updateMenuWeaponStatus() {
+  if (!els.menuWeaponStatus || !els.forgeEntryStatus) return;
+  if (state.menuWeapon) {
+    const weapon = state.menuWeapon;
+    els.menuWeaponStatus.innerHTML = 'ARMA EQUIPADA <span>//</span> <b></b>';
+    els.menuWeaponStatus.querySelector('b').textContent = weapon.title;
+    els.forgeEntryStatus.textContent = `${weapon.kind} • ${weapon.rarity.label} • toque para editar`;
+    return;
+  }
+  els.menuWeaponStatus.innerHTML = 'ARMA PADRÃO <span>//</span> <b>PISTOLA DE ACESSO</b>';
+  els.forgeEntryStatus.textContent = 'escreva ou fale o nome • prévia 3D • equipe antes de jogar';
+}
+
+function setMenuWeapon(weapon, { remember = false, syncInput = false } = {}) {
+  if (!weapon) return;
+  state.menuWeapon = weapon;
+  writeStringPref(MENU_WEAPON_KEY, weapon.title);
+  document.documentElement.style.setProperty('--weapon-accent', weapon.accent);
+  document.documentElement.style.setProperty('--weapon-accent-rgb', weapon.accentRgb);
+  if (state.game?.mode === 'menu') state.game.previewWeapon(weapon);
+  updateMenuWeaponStatus();
+  if (syncInput) els.forgeInput.value = weapon.title;
+  if (remember) rememberWeapon(weapon);
+}
+
+function renderForgePreview(weapon) {
+  if (!weapon) return;
+  els.forgePreview.style.setProperty('--forge-accent', weapon.accent);
+  els.forgePreview.style.setProperty('--forge-accent-rgb', weapon.accentRgb);
+  els.forgePreviewRarity.textContent = weapon.rarity.label;
+  els.forgePreviewRarity.style.color = weapon.rarity.color;
+  els.forgePreviewName.textContent = weapon.name;
+  els.forgePreviewKind.textContent = weapon.kind;
+  els.forgePreviewDesc.textContent = describeWeapon(weapon);
+  els.forgePreviewElement.textContent = weapon.element.label;
+  els.forgePreviewMode.textContent = weapon.mode;
+  els.forgeStatDamage.style.width = `${weapon.bars.damage}%`;
+  els.forgeStatRate.style.width = `${weapon.bars.rate}%`;
+  els.forgeStatDamageNum.textContent = String(weapon.stats.displayedDamage);
+  els.forgeStatRateNum.textContent = String(weapon.stats.rate);
+  const pellets = weapon.stats.pellets > 1
+    ? `${weapon.stats.pellets} projéteis por disparo`
+    : 'projétil único';
+  els.forgePreviewNote.textContent = `${pellets} • alcance ${Math.round(weapon.stats.range)} m • ${weapon.rarity.label.toLowerCase()} • a prévia também gira no showroom 3D.`;
+}
+
+function updateForgeDraft(phrase) {
+  const clean = String(phrase || '').replace(/\s+/g, ' ').trim();
+  if (!clean) {
+    state.forgeDraft = null;
+    if (state.game?.mode === 'menu' && state.forgeBaseWeapon) {
+      state.game.previewWeapon(state.forgeBaseWeapon);
+    }
+    els.forgePreviewNote.textContent = 'Digite um nome ou toque em DITAR para começar a forja.';
+    return null;
+  }
+
+  const weapon = createWeaponFromPhrase(clean);
+  state.forgeDraft = weapon;
+  renderForgePreview(weapon);
+  if (state.game?.mode === 'menu') state.game.previewWeapon(weapon);
+  return weapon;
+}
+
+function scheduleForgeDraft() {
+  clearTimeout(state.forgePreviewTimer);
+  state.forgePreviewTimer = setTimeout(() => {
+    updateForgeDraft(els.forgeInput.value);
+  }, 110);
+}
+
+function getForgeWeapon() {
+  const phrase = els.forgeInput.value.trim();
+  if (phrase) return updateForgeDraft(phrase);
+  const fallback = state.forgeBaseWeapon || state.menuWeapon || createWeaponFromPhrase(FALLBACK_WEAPON_PHRASE);
+  return updateForgeDraft(fallback.title) || fallback;
+}
+
+function openForgeModal() {
+  if (!state.game || state.game.mode !== 'menu') return;
+  audio.ensure();
+  audio.ui();
+  state.forgeOpen = true;
+  state.forgeVoiceError = false;
+  const base = state.menuWeapon || state.game.menuShowcase || createWeaponFromPhrase(DEFAULT_SHOWCASE_PHRASE);
+  state.forgeBaseWeapon = base;
+  els.forgeInput.value = base.title;
+  updateForgeDraft(base.title);
+  renderWeaponMemory();
+  updateForgeVoiceUi();
+  refreshForgeMicPermissionState();
+  showModal(els.forgeModal);
+  releaseTouchControls();
+  if (!coarsePointer) {
+    setTimeout(() => {
+      els.forgeInput.focus({ preventScroll: true });
+      els.forgeInput.select();
+    }, 120);
+  }
+}
+
+function closeForgeModal({ restore = true } = {}) {
+  state.forgeOpen = false;
+  clearTimeout(state.forgePreviewTimer);
+  els.forgeInput.blur?.();
+  stopForgeDictation();
+  hideModal(els.forgeModal);
+  if (restore) {
+    const weapon = state.forgeBaseWeapon || state.menuWeapon || createWeaponFromPhrase(DEFAULT_SHOWCASE_PHRASE);
+    if (state.game?.mode === 'menu') state.game.previewWeapon(weapon);
+    renderForgePreview(weapon);
+    state.forgeDraft = null;
+  }
+}
+
+function equipForgeWeapon({ start = false } = {}) {
+  const weapon = getForgeWeapon();
+  if (!weapon) {
+    els.forgeInput.focus({ preventScroll: true });
+    return;
+  }
+
+  setMenuWeapon(weapon, { remember: true });
+  closeForgeModal({ restore: false });
+  audio.ui(true);
+  pulseHaptic(14);
+
+  if (start) {
+    startSession(Boolean(detectSpeechSupport()), false, weapon);
+    return;
+  }
+
+  showToast(`ARMA EQUIPADA • ${weapon.title.toUpperCase()}`);
+}
+
+function setForgeDictating(on) {
+  els.forgeDictate.setAttribute('aria-pressed', String(on));
+  els.forgeDictateLabel.textContent = on ? 'OUVINDO' : 'DITAR';
+}
+
+function updateForgeVoiceUi(message = '', tone = '') {
+  if (!els.forgeVoiceStatus) return;
+  if (state.forgeMicPermission !== 'unknown') {
+    els.forgePermission.dataset.state = state.forgeMicPermission;
+  } else {
+    delete els.forgePermission.dataset.state;
+  }
+
+  if (state.forgeMicPermission === 'granted') els.forgePermissionLabel.textContent = 'MICROFONE LIBERADO';
+  else if (state.forgeMicPermission === 'denied') els.forgePermissionLabel.textContent = 'PERMISSÃO NEGADA';
+  else if (state.forgeMicPermission === 'pending') els.forgePermissionLabel.textContent = 'SOLICITANDO…';
+  else if (state.forgeMicPermission === 'unsupported') els.forgePermissionLabel.textContent = 'MICROFONE INDISPONÍVEL';
+  else els.forgePermissionLabel.textContent = 'LIBERAR MICROFONE';
+
+  els.forgeVoiceStatus.classList.toggle('ok', tone === 'ok');
+  els.forgeVoiceStatus.classList.toggle('error', tone === 'error');
+
+  if (message) {
+    els.forgeVoiceStatus.textContent = message;
+    return;
+  }
+
+  if (!detectSpeechSupport()) {
+    els.forgeVoiceStatus.textContent = 'Reconhecimento de voz indisponível neste navegador. Digite o nome ou use o microfone do teclado.';
+  } else if (state.forgeMicPermission === 'granted') {
+    els.forgeVoiceStatus.textContent = 'Permissão concedida. Toque em DITAR e fale o nome da arma.';
+  } else if (state.forgeMicPermission === 'denied') {
+    els.forgeVoiceStatus.textContent = 'Microfone bloqueado pelo navegador. Libere nas permissões ou digite o nome.';
+  } else if (state.forgeMicPermission === 'unsupported') {
+    els.forgeVoiceStatus.textContent = 'Este navegador não expõe acesso ao microfone. Digite o nome da arma.';
+  } else {
+    els.forgeVoiceStatus.textContent = 'Toque em LIBERAR MICROFONE para pedir permissão de voz.';
+  }
+}
+
+async function refreshForgeMicPermissionState() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    if (state.forgeMicPermission !== 'granted') state.forgeMicPermission = 'unsupported';
+    if (state.forgeOpen) updateForgeVoiceUi();
+    return;
+  }
+
+  if (!navigator.permissions?.query) {
+    if (state.forgeOpen) updateForgeVoiceUi();
+    return;
+  }
+
+  try {
+    const status = await navigator.permissions.query({ name: 'microphone' });
+    if (status.state === 'granted' || status.state === 'denied') {
+      state.forgeMicPermission = status.state;
+    }
+    status.onchange = () => {
+      if (status.state === 'granted' || status.state === 'denied') state.forgeMicPermission = status.state;
+      else state.forgeMicPermission = 'unknown';
+      if (state.forgeOpen) updateForgeVoiceUi();
+    };
+  } catch {
+    // Some browsers do not expose the microphone permission name.
+  }
+  if (state.forgeOpen) updateForgeVoiceUi();
+}
+
+async function requestForgeMicPermission() {
+  audio.ensure();
+  state.forgeVoiceError = false;
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    state.forgeMicPermission = 'unsupported';
+    updateForgeVoiceUi('Este navegador não expõe acesso ao microfone. Digite o nome da arma.', 'error');
+    return;
+  }
+
+  state.forgeMicPermission = 'pending';
+  updateForgeVoiceUi('Solicitando permissão de microfone…');
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((track) => track.stop());
+    state.forgeMicPermission = 'granted';
+    const speech = detectSpeechSupport();
+    updateForgeVoiceUi(
+      speech
+        ? 'Microfone liberado. Toque em DITAR e fale o nome da arma.'
+        : 'Microfone liberado, mas este navegador não reconhece voz. Digite ou use o microfone do teclado.',
+      speech ? 'ok' : '',
+    );
+    showToast('MICROFONE LIBERADO');
+    pulseHaptic(10);
+  } catch (error) {
+    const denied = error?.name === 'NotAllowedError' || error?.name === 'SecurityError';
+    state.forgeMicPermission = denied ? 'denied' : 'unknown';
+    const message = denied
+      ? 'Permissão negada. Libere o microfone nas permissões do navegador e tente novamente.'
+      : error?.name === 'NotFoundError'
+        ? 'Nenhum microfone encontrado. Conecte um microfone ou digite o nome.'
+        : 'Não foi possível abrir o microfone. Tente novamente ou digite o nome.';
+    updateForgeVoiceUi(message, 'error');
+    showToast('MICROFONE NÃO AUTORIZADO', 'error');
+  }
+}
+
+function createForgeRecognition() {
+  const Recognition = detectSpeechSupport();
+  if (!Recognition) return null;
+  const recognition = new Recognition();
+  recognition.lang = 'pt-BR';
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    state.forgeRecognitionRunning = true;
+    setForgeDictating(true);
+    updateForgeVoiceUi('Ouvindo… fale o nome da arma.', 'ok');
+  };
+
+  recognition.onresult = (event) => {
+    let interim = '';
+    let finalText = '';
+    for (let i = event.resultIndex; i < event.results.length; i += 1) {
+      const result = event.results[i];
+      const transcript = result[0]?.transcript?.trim() || '';
+      if (!transcript) continue;
+      if (result.isFinal) finalText += `${finalText ? ' ' : ''}${transcript}`;
+      else interim += `${interim ? ' ' : ''}${transcript}`;
+    }
+
+    const captured = finalText || interim;
+    if (captured) {
+      els.forgeInput.value = captured;
+      updateForgeDraft(captured);
+      state.forgeMicPermission = 'granted';
+      state.forgeVoiceError = false;
+      updateForgeVoiceUi(
+        finalText ? 'Nome capturado. Ajuste se quiser e equipe.' : 'Ouvindo…',
+        finalText ? 'ok' : '',
+      );
+    }
+  };
+
+  recognition.onspeechend = () => {
+    updateForgeVoiceUi('Processando o nome…');
+  };
+
+  recognition.onerror = (event) => {
+    if (event.error === 'aborted') return;
+    state.forgeRecognitionRunning = false;
+    state.forgeVoiceError = true;
+    setForgeDictating(false);
+
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      state.forgeMicPermission = 'denied';
+      updateForgeVoiceUi('Permissão negada. Libere o microfone nas permissões do navegador ou digite o nome.', 'error');
+      return;
+    }
+    if (event.error === 'no-speech') {
+      updateForgeVoiceUi('Não ouvi nada. Toque em DITAR e tente novamente.');
+      return;
+    }
+    if (event.error === 'audio-capture') {
+      updateForgeVoiceUi('Nenhum microfone encontrado. Conecte um microfone ou digite o nome.', 'error');
+      return;
+    }
+    updateForgeVoiceUi('Reconhecimento de voz indisponível. Digite o nome ou use o microfone do teclado.', 'error');
+  };
+
+  recognition.onend = () => {
+    state.forgeRecognitionRunning = false;
+    setForgeDictating(false);
+    if (state.forgeOpen && !state.forgeVoiceError) updateForgeVoiceUi();
+  };
+
+  return recognition;
+}
+
+function toggleForgeDictation() {
+  audio.ensure();
+  state.forgeVoiceError = false;
+
+  if (state.forgeRecognitionRunning) {
+    stopForgeDictation();
+    return;
+  }
+
+  if (!detectSpeechSupport()) {
+    state.forgeVoiceError = true;
+    updateForgeVoiceUi('Reconhecimento de voz indisponível neste navegador. Digite o nome ou use o microfone do teclado.', 'error');
+    els.forgeInput.focus({ preventScroll: true });
+    return;
+  }
+
+  if (!state.forgeRecognition) state.forgeRecognition = createForgeRecognition();
+  if (!state.forgeRecognition) return;
+
+  try {
+    state.forgeRecognition.start();
+  } catch (error) {
+    if (error?.name === 'InvalidStateError') return;
+    state.forgeVoiceError = true;
+    updateForgeVoiceUi('Não foi possível iniciar a escuta. Verifique a permissão e tente novamente.', 'error');
+  }
+}
+
+function stopForgeDictation() {
+  if (state.forgeRecognition && state.forgeRecognitionRunning) {
+    try {
+      state.forgeRecognition.stop();
+    } catch {
+      /* It may already be stopped. */
+    }
+  }
+  state.forgeRecognitionRunning = false;
+  setForgeDictating(false);
+  if (state.forgeOpen && !state.forgeVoiceError) updateForgeVoiceUi();
+}
+
+function initWeaponDesigner() {
+  state.weaponMemory = readWeaponMemory();
+  const savedPhrase = readStringPref(MENU_WEAPON_KEY, '').trim();
+  if (savedPhrase) {
+    setMenuWeapon(createWeaponFromPhrase(savedPhrase));
+  } else {
+    updateMenuWeaponStatus();
+  }
+  renderWeaponMemory();
+  updateForgeVoiceUi();
+  refreshForgeMicPermissionState();
+}
+
+/* ============================================================
    Game callbacks
    ============================================================ */
 
@@ -278,6 +791,7 @@ const gameCallbacks = {
     els.statRateNum.textContent = `${weapon.stats.rate}`;
 
     if (animate) {
+      rememberWeapon(weapon);
       els.weaponCard.classList.remove('materialize');
       void els.weaponCard.offsetWidth;
       els.weaponCard.classList.add('materialize');
@@ -445,6 +959,17 @@ function createGame() {
       harvest: () => state.game.getHarvestState(),
       start: (voice = false) => startSession(Boolean(voice), true),
       togglePause: () => togglePause(),
+      design: (phrase) => {
+        const weapon = createWeaponFromPhrase(phrase);
+        setMenuWeapon(weapon, { remember: true });
+        return weapon;
+      },
+      preview: (phrase) => updateForgeDraft(phrase),
+      openForge: () => openForgeModal(),
+      closeForge: () => closeForgeModal(),
+      getMenuWeapon: () => state.menuWeapon,
+      getWeaponMemory: () => state.weaponMemory.slice(),
+      getVoicePermission: () => state.forgeMicPermission,
       spawn: () => {
         if (state.game.mode === 'playing') state.game.spawnEnemy('drone');
       },
@@ -469,6 +994,7 @@ function createGame() {
 
   applyPreferences();
   setupInterface();
+  initWeaponDesigner();
   updateVoiceSupportUi();
   updateWeaponFromDefault();
   requestAnimationFrame(() => {
@@ -521,7 +1047,7 @@ function handleQueryParameters() {
    Session flow
    ============================================================ */
 
-function startSession(withVoice, instant = false) {
+function startSession(withVoice, instant = false, starterWeapon = state.menuWeapon) {
   if (!state.game) return;
   if (state.game.mode === 'playing') return;
 
@@ -532,6 +1058,9 @@ function startSession(withVoice, instant = false) {
   hideModal(els.pauseModal);
   hideModal(els.micModal);
   hideModal(els.typeModal);
+  hideModal(els.forgeModal);
+  state.forgeOpen = false;
+  stopForgeDictation();
 
   if (withVoice) {
     state.preferredVoice = true;
@@ -565,7 +1094,7 @@ function startSession(withVoice, instant = false) {
     state.menuAnimationTimer = setTimeout(() => els.menu.classList.add('is-hidden'), 560);
   }
   els.hud.classList.remove('is-hidden');
-  state.game.startRun();
+  state.game.startRun(starterWeapon);
   hideHarvestUi();
   resetTranscript();
   updateMicUI(state.voiceWanted);
@@ -579,13 +1108,17 @@ function returnToMenu() {
   state.runToken += 1;
   clearTimeout(state.overTimer);
   stopVoice();
+  stopForgeDictation();
   releaseTouchControls();
   state.game.showMenu();
+  if (state.menuWeapon) state.game.previewWeapon(state.menuWeapon);
   hideHarvestUi();
   hideModal(els.pauseModal);
   hideModal(els.gameoverModal);
   hideModal(els.typeModal);
   hideModal(els.micModal);
+  hideModal(els.forgeModal);
+  state.forgeOpen = false;
   els.hud.classList.add('is-hidden');
   els.menu.classList.remove('is-hidden', 'leaving');
   els.menu.style.animation = 'none';
@@ -600,7 +1133,7 @@ function restartSession() {
   hideModal(els.gameoverModal);
   state.runToken += 1;
   state.lastHealthShown = 100;
-  state.game.startRun();
+  state.game.startRun(state.menuWeapon);
   hideHarvestUi();
   els.hud.classList.remove('is-hidden');
   els.menu.classList.add('is-hidden');
@@ -1081,6 +1614,10 @@ function configureInput() {
     const tag = event.target?.tagName;
     const typing = tag === 'INPUT' || tag === 'TEXTAREA';
     if (event.code === 'Escape') {
+      if (!els.forgeModal.classList.contains('is-hidden')) {
+        closeForgeModal();
+        return;
+      }
       if (!els.typeModal.classList.contains('is-hidden')) {
         closeTypeModal();
         return;
@@ -1262,6 +1799,51 @@ function setupInterface() {
   els.silentBtn.addEventListener('click', () => {
     audio.ensure();
     startSession(false);
+  });
+
+  els.forgeStartBtn.addEventListener('click', () => {
+    openForgeModal();
+  });
+
+  els.forgeDismiss.addEventListener('click', () => closeForgeModal());
+  els.forgeClose.addEventListener('click', () => closeForgeModal());
+
+  els.forgeModal.addEventListener('pointerdown', (event) => {
+    if (event.target === els.forgeModal) closeForgeModal();
+  });
+
+  els.forgeForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    equipForgeWeapon();
+  });
+
+  els.forgeInput.addEventListener('input', () => {
+    scheduleForgeDraft();
+  });
+
+  els.forgePlay.addEventListener('click', () => {
+    equipForgeWeapon({ start: true });
+  });
+
+  els.forgeEquip.addEventListener('click', () => {
+    equipForgeWeapon();
+  });
+
+  els.forgeDictate.addEventListener('click', () => {
+    toggleForgeDictation();
+  });
+
+  els.forgePermission.addEventListener('click', () => {
+    requestForgeMicPermission();
+  });
+
+  document.querySelectorAll('[data-forge-phrase]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const phrase = button.getAttribute('data-forge-phrase') || '';
+      els.forgeInput.value = phrase;
+      updateForgeDraft(phrase);
+      if (!coarsePointer) els.forgeInput.focus({ preventScroll: true });
+    });
   });
 
   els.soundToggle.addEventListener('click', () => {

@@ -345,6 +345,37 @@ export function createWeaponFromPhrase(rawPhrase) {
   };
 }
 
+const ARCHETYPE_BEHAVIOR = {
+  cannon: 'Dispara um projétil explosivo com dano em área. Ideal contra grupos.',
+  shotgun: 'Abre um leque de 7 projéteis de curto alcance. Devastadora de perto.',
+  rail: 'Perfura a fileira de hostis com um disparo preciso de alcance longo.',
+  minigun: 'Cospe um fluxo contínuo de balas com cadência extrema e dispersão alta.',
+  rifle: 'Rajadas automáticas equilibradas para combate de médio alcance.',
+  beam: 'Mantém um feixe contínuo que castiga o alvo enquanto você mira.',
+  pistol: 'Disparos semi-automáticos precisos e estáveis, um por vez.',
+};
+
+const ELEMENT_FLAVOR = {
+  fire: 'A energia de fogo deixa cada impacto incandescente.',
+  ice: 'O gelo transforma os acertos em estilhaços congelantes.',
+  storm: 'Descargas elétricas acompanham cada disparo.',
+  plasma: 'O plasma superaquece o projétil e amplia o clarão.',
+  toxic: 'O ácido deixa um rastro corrosivo no alvo.',
+  void: 'A energia do vazio suga a luz ao redor do disparo.',
+  prism: 'O prisma refrata a luz em um feixe cristalino.',
+  neutral: '',
+};
+
+export function describeWeapon(weapon) {
+  if (!weapon) return '';
+  const behavior = ARCHETYPE_BEHAVIOR[weapon.archetype?.id] || ARCHETYPE_BEHAVIOR.pistol;
+  const flavor = ELEMENT_FLAVOR[weapon.element?.id] || '';
+  const rarity = weapon.rarity && weapon.rarity.id !== 'common'
+    ? ` A raridade ${weapon.rarity.label.toLowerCase()} amplifica o dano.`
+    : '';
+  return `${behavior}${flavor ? ` ${flavor}` : ''}${rarity}`;
+}
+
 function hexToRgbTriplet(hex) {
   const value = hex.replace('#', '');
   const num = parseInt(value, 16);
